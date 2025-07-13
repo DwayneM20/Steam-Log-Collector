@@ -70,6 +70,30 @@ namespace SteamUtils
             return false;
         }
     }
+
+    bool isValidSteamDirectory(const std::string &path)
+    {
+        std::string os = getOperatingSystem();
+        if (os == "Windows")
+        {
+            return std::filesystem::exists(path + "\\steam.exe") ||
+                   std::filesystem::exists(path + "\\Steam.exe");
+        }
+        else if (os == "macOS")
+        {
+            return std::filesystem::exists(path + "/Steam") ||
+                   std::filesystem::exists(path + "/../Steam") ||
+                   std::filesystem::exists(path + "/steamapps");
+        }
+        else if (os == "Linux")
+        {
+            return std::filesystem::exists(path + "/steam") ||
+                   std::filesystem::exists(path + "/steam.sh") ||
+                   std::filesystem::exists(path + "/steamapps");
+        }
+        return false;
+    }
+
     std::vector<std::string> getSteamDirectoryPaths()
     {
         std::vector<std::string> paths;

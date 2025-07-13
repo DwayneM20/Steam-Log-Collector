@@ -26,6 +26,13 @@ namespace SteamUtils
     bool directoryExists(const std::string &path);
 
     /**
+     * @brief Validates if a given directory is a valid steam directory
+     * @param path The directory path to validate
+     * @return True if the directory is a valid Steam directory, false otherwise
+     */
+    bool isValidSteamDirectory(const std::string &path);
+
+    /**
      * @brief Gets the user's home directory path
      * @return Path to the user's home directory
      */
