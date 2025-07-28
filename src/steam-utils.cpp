@@ -2,6 +2,13 @@
 #include "logger.hpp"
 #include <filesystem>
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+#include <cctype>
+#include <iomanip>
+#include <chrono>
+#include <memory>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -28,6 +35,7 @@ namespace SteamUtils
         return "Unknown OS";
 #endif
     }
+
     std::string getHomeDirectory()
     {
 #ifdef _WIN32
@@ -46,9 +54,6 @@ namespace SteamUtils
         {
             return std::string(home);
         }
-
-        // Fallback to passwd entry
-
         struct passwd *pw = getpwuid(getuid());
         if (pw != nullptr)
         {
@@ -74,6 +79,7 @@ namespace SteamUtils
     bool isValidSteamDirectory(const std::string &path)
     {
         std::string os = getOperatingSystem();
+
         if (os == "Windows")
         {
             return std::filesystem::exists(path + "\\steam.exe") ||
@@ -91,6 +97,7 @@ namespace SteamUtils
                    std::filesystem::exists(path + "/steam.sh") ||
                    std::filesystem::exists(path + "/steamapps");
         }
+
         return false;
     }
 
@@ -102,15 +109,24 @@ namespace SteamUtils
 
         if (os == "Windows")
         {
-            paths.push_back("C:\\Program Files (x86)\\Steam");
-            paths.push_back("C:\\Program Files\\Steam");
+            // Check multiple drives for Steam installation
+            std::vector<char> drives = {'C', 'D', 'E', 'F', 'G', 'H'};
+
+            for (char drive : drives)
+            {
+                std::string driveRoot = std::string(1, drive) + ":";
+                paths.push_back(driveRoot + "\\Program Files (x86)\\Steam");
+                paths.push_back(driveRoot + "\\Program Files\\Steam");
+                paths.push_back(driveRoot + "\\Steam");
+                paths.push_back(driveRoot + "\\Games\\Steam");
+            }
 
             if (!home.empty())
             {
                 paths.push_back(home + "\\AppData\\Local\\Steam");
                 paths.push_back(home + "\\Steam");
             }
-// Check for custom installation paths
+
 #ifdef _WIN32
             HKEY hKey;
             if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\WOW6432Node\\Valve\\Steam"), 0, KEY_READ, &hKey) == ERROR_SUCCESS ||
@@ -151,6 +167,7 @@ namespace SteamUtils
         }
         return paths;
     }
+
     std::string findSteamDirectory()
     {
         Logger::log("Searching for Steam installation directory...");
@@ -166,26 +183,7 @@ namespace SteamUtils
 
             if (directoryExists(path))
             {
-                bool isValidSteamDir = false;
-
-                if (os == "Windows")
-                {
-                    isValidSteamDir = std::filesystem::exists(path + "\\steam.exe") ||
-                                      std::filesystem::exists(path + "\\Steam.exe");
-                }
-                else if (os == "macOS")
-                {
-                    isValidSteamDir = std::filesystem::exists(path + "/Steam") ||
-                                      std::filesystem::exists(path + "/../Steam") ||
-                                      std::filesystem::exists(path + "/steamapps");
-                }
-                else if (os == "Linux")
-                {
-                    isValidSteamDir = std::filesystem::exists(path + "/steam") ||
-                                      std::filesystem::exists(path + "/steam.sh") ||
-                                      std::filesystem::exists(path + "/steamapps");
-                }
-                if (isValidSteamDir)
+                if (isValidSteamDirectory(path))
                 {
                     Logger::log("Found valid Steam directory: " + path);
                     return path;
@@ -198,5 +196,346 @@ namespace SteamUtils
         }
         Logger::log("Steam directory not found in any of the common locations.");
         return "";
+    }
+
+    GameInfo parseAcfFile(const std::string &acfFilePath)
+    {
+        GameInfo game;
+        std::ifstream file(acfFilePath);
+
+        if (!file.is_open())
+        {
+            Logger::log("Failed to open ACF file: " + acfFilePath);
+            return game;
+        }
+
+        std::string line;
+        while (std::getline(file, line))
+        {
+            line.erase(0, line.find_first_not_of(" \t"));
+            line.erase(line.find_last_not_of(" \t") + 1);
+
+            if (line.find("\"appid\"") == 0)
+            {
+                size_t start = line.find("\"", 8);
+                size_t end = line.find("\"", start + 1);
+                if (start != std::string::npos && end != std::string::npos)
+                {
+                    game.appId = line.substr(start + 1, end - start - 1);
+                }
+            }
+            else if (line.find("\"name\"") == 0)
+            {
+                size_t start = line.find("\"", 7);
+                size_t end = line.find("\"", start + 1);
+                if (start != std::string::npos && end != std::string::npos)
+                {
+                    game.name = line.substr(start + 1, end - start - 1);
+                }
+            }
+            else if (line.find("\"installdir\"") == 0)
+            {
+                size_t start = line.find("\"", 12);
+                size_t end = line.find("\"", start + 1);
+                if (start != std::string::npos && end != std::string::npos)
+                {
+                    game.installDir = line.substr(start + 1, end - start - 1);
+                }
+            }
+        }
+
+        file.close();
+        return game;
+    }
+
+    std::vector<GameInfo> getInstalledGames(const std::string &steamDir)
+    {
+        std::vector<GameInfo> games;
+        std::string steamappsPath = steamDir;
+        std::string os = getOperatingSystem();
+
+        if (os == "Windows")
+        {
+            steamappsPath += "\\steamapps";
+        }
+        else
+        {
+            steamappsPath += "/steamapps";
+        }
+
+        Logger::log("Scanning for games in: " + steamappsPath);
+
+        if (!directoryExists(steamappsPath))
+        {
+            Logger::log("Steamapps directory not found: " + steamappsPath);
+            return games;
+        }
+
+        try
+        {
+            for (const auto &entry : std::filesystem::directory_iterator(steamappsPath))
+            {
+                if (entry.is_regular_file())
+                {
+                    std::string filename = entry.path().filename().string();
+                    if (filename.substr(0, 12) == "appmanifest_" &&
+                        filename.length() > 4 && filename.substr(filename.length() - 4) == ".acf")
+                    {
+                        GameInfo game = parseAcfFile(entry.path().string());
+                        if (!game.name.empty() && !game.appId.empty())
+                        {
+                            games.push_back(game);
+                            Logger::log("Found game: " + game.name + " (ID: " + game.appId + ")");
+                        }
+                    }
+                }
+            }
+        }
+        catch (const std::filesystem::filesystem_error &e)
+        {
+            Logger::log("Error scanning steamapps directory: " + std::string(e.what()));
+        }
+
+        Logger::log("Found " + std::to_string(games.size()) + " installed games");
+        return games;
+    }
+
+    const GameInfo *findGameByName(const std::vector<GameInfo> &games, const std::string &gameName)
+    {
+        std::string lowerGameName = gameName;
+        std::transform(lowerGameName.begin(), lowerGameName.end(), lowerGameName.begin(), ::tolower);
+
+        for (const auto &game : games)
+        {
+            std::string lowerCurrentGame = game.name;
+            std::transform(lowerCurrentGame.begin(), lowerCurrentGame.end(), lowerCurrentGame.begin(), ::tolower);
+
+            if (lowerCurrentGame == lowerGameName || lowerCurrentGame.find(lowerGameName) != std::string::npos)
+            {
+                return &game;
+            }
+        }
+        return nullptr;
+    }
+
+    std::vector<std::string> getLogFileExtensions()
+    {
+        return {".log", ".txt", ".out", ".err", ".crash", ".dmp", ".mdmp", ".rpt",
+                ".debug", ".trace", ".console", ".output", ".error"};
+    }
+
+    bool isLogFile(const std::string &filename)
+    {
+        std::string lowerFilename = filename;
+        std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), ::tolower);
+        std::vector<std::string> logExtensions = getLogFileExtensions();
+
+        for (const auto &ext : logExtensions)
+        {
+            if (lowerFilename.length() >= ext.length() &&
+                lowerFilename.substr(lowerFilename.length() - ext.length()) == ext)
+            {
+                return true;
+            }
+        }
+
+        std::vector<std::string> logPatterns = {
+            "log", "crash", "error", "debug", "console", "output",
+            "stderr", "stdout", "trace", "dump", "report"};
+
+        for (const auto &pattern : logPatterns)
+        {
+            if (lowerFilename.find(pattern) != std::string::npos)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    std::string formatFileSize(std::uintmax_t size)
+    {
+        const char *units[] = {"B", "KB", "MB", "GB"};
+        double fileSize = static_cast<double>(size);
+        int unitIndex = 0;
+
+        while (fileSize >= 1024.0 && unitIndex < 3)
+        {
+            fileSize /= 1024.0;
+            unitIndex++;
+        }
+
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(1) << fileSize << " " << units[unitIndex];
+        return oss.str();
+    }
+
+    std::string formatFileTime(const std::string &filePath)
+    {
+        try
+        {
+            auto ftime = std::filesystem::last_write_time(filePath);
+            auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                ftime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
+            auto time_t = std::chrono::system_clock::to_time_t(sctp);
+
+            std::ostringstream oss;
+            oss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
+            return oss.str();
+        }
+        catch (const std::exception &e)
+        {
+            return "Unknown";
+        }
+    }
+
+    void searchLogsInDirectory(const std::string &directory, std::vector<LogFile> &logFiles,
+                               int maxDepth, int currentDepth)
+    {
+        if (currentDepth >= maxDepth || !directoryExists(directory))
+        {
+            return;
+        }
+
+        try
+        {
+            for (const auto &entry : std::filesystem::directory_iterator(directory))
+            {
+                try
+                {
+                    if (entry.is_regular_file())
+                    {
+                        std::string filename = entry.path().filename().string();
+
+                        if (isLogFile(filename))
+                        {
+                            LogFile logFile;
+                            logFile.path = entry.path().string();
+                            logFile.filename = filename;
+                            logFile.size = entry.file_size();
+                            logFile.lastModified = formatFileTime(logFile.path);
+
+                            std::string lowerFilename = filename;
+                            std::transform(lowerFilename.begin(), lowerFilename.end(),
+                                           lowerFilename.begin(), ::tolower);
+
+                            if (lowerFilename.find("crash") != std::string::npos ||
+                                lowerFilename.find("dump") != std::string::npos)
+                            {
+                                logFile.type = "crash_log";
+                            }
+                            else if (lowerFilename.find("error") != std::string::npos)
+                            {
+                                logFile.type = "error_log";
+                            }
+                            else if (lowerFilename.find("debug") != std::string::npos)
+                            {
+                                logFile.type = "debug_log";
+                            }
+                            else if (lowerFilename.find("console") != std::string::npos)
+                            {
+                                logFile.type = "console_log";
+                            }
+                            else
+                            {
+                                logFile.type = "game_log";
+                            }
+
+                            logFiles.push_back(logFile);
+                            Logger::log("Found log file: " + logFile.path + " (" + formatFileSize(logFile.size) + ")");
+                        }
+                    }
+                    else if (entry.is_directory() && currentDepth < maxDepth - 1)
+                    {
+                        searchLogsInDirectory(entry.path().string(), logFiles, maxDepth, currentDepth + 1);
+                    }
+                }
+                catch (const std::exception &e)
+                {
+                    continue;
+                }
+            }
+        }
+        catch (const std::filesystem::filesystem_error &e)
+        {
+            Logger::log("Error scanning directory " + directory + ": " + e.what());
+        }
+    }
+
+    std::vector<LogFile> findGameLogs(const std::string &steamDir, const GameInfo &game)
+    {
+        std::vector<LogFile> logFiles;
+        std::vector<std::string> searchPaths;
+        std::string os = getOperatingSystem();
+        std::string home = getHomeDirectory();
+
+        Logger::log("Searching for logs for game: " + game.name + " (ID: " + game.appId + ")");
+
+        if (os == "Windows")
+        {
+            searchPaths.push_back(steamDir + "\\steamapps\\common\\" + game.installDir);
+            if (!home.empty())
+            {
+                searchPaths.push_back(home + "\\AppData\\Local\\" + game.installDir);
+                searchPaths.push_back(home + "\\AppData\\Roaming\\" + game.installDir);
+                searchPaths.push_back(home + "\\AppData\\Local\\" + game.name);
+                searchPaths.push_back(home + "\\AppData\\Roaming\\" + game.name);
+                searchPaths.push_back(home + "\\Documents\\My Games\\" + game.installDir);
+                searchPaths.push_back(home + "\\Documents\\My Games\\" + game.name);
+                searchPaths.push_back(home + "\\Documents\\" + game.name);
+                searchPaths.push_back(home + "\\Documents\\" + game.installDir);
+            }
+        }
+        else if (os == "Linux")
+        {
+            searchPaths.push_back(steamDir + "/steamapps/common/" + game.installDir);
+
+            if (!home.empty())
+            {
+                searchPaths.push_back(home + "/.local/share/" + game.installDir);
+                searchPaths.push_back(home + "/.config/" + game.installDir);
+                searchPaths.push_back(home + "/." + game.installDir);
+                searchPaths.push_back(home + "/.local/share/" + game.name);
+                searchPaths.push_back(home + "/.config/" + game.name);
+                searchPaths.push_back(steamDir + "/steamapps/compatdata/" + game.appId + "/pfx/drive_c/users/steamuser/AppData/Local/" + game.installDir);
+                searchPaths.push_back(steamDir + "/steamapps/compatdata/" + game.appId + "/pfx/drive_c/users/steamuser/AppData/Roaming/" + game.installDir);
+                searchPaths.push_back(steamDir + "/steamapps/compatdata/" + game.appId + "/pfx/drive_c/users/steamuser/Documents/" + game.name);
+            }
+        }
+        else if (os == "macOS")
+        {
+            searchPaths.push_back(steamDir + "/steamapps/common/" + game.installDir);
+
+            if (!home.empty())
+            {
+                searchPaths.push_back(home + "/Library/Application Support/" + game.installDir);
+                searchPaths.push_back(home + "/Library/Application Support/" + game.name);
+                searchPaths.push_back(home + "/Library/Logs/" + game.installDir);
+                searchPaths.push_back(home + "/Library/Logs/" + game.name);
+                searchPaths.push_back(home + "/Library/Preferences/" + game.installDir);
+                searchPaths.push_back(home + "/Library/Preferences/" + game.name);
+                searchPaths.push_back(home + "/Documents/" + game.name);
+                searchPaths.push_back(home + "/Documents/" + game.installDir);
+            }
+        }
+
+        std::sort(searchPaths.begin(), searchPaths.end());
+        searchPaths.erase(std::unique(searchPaths.begin(), searchPaths.end()), searchPaths.end());
+
+        for (const auto &path : searchPaths)
+        {
+            Logger::log("Searching in: " + path);
+            searchLogsInDirectory(path, logFiles, 3, 0);
+        }
+
+        std::sort(logFiles.begin(), logFiles.end(),
+                  [](const LogFile &a, const LogFile &b)
+                  {
+                      return a.lastModified > b.lastModified;
+                  });
+
+        Logger::log("Found " + std::to_string(logFiles.size()) + " log files for " + game.name);
+        return logFiles;
     }
 }
