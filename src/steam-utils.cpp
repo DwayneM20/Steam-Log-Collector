@@ -538,4 +538,279 @@ namespace SteamUtils
         Logger::log("Found " + std::to_string(logFiles.size()) + " log files for " + game.name);
         return logFiles;
     }
+    bool createDirectory(const std::string &path)
+    {
+        try
+        {
+            if (std::filesystem::exists(path))
+            {
+                bool isDir = std::filesystem::is_directory(path);
+                Logger::log("Directory already exists: " + path + " (is_directory: " + (isDir ? "true" : "false") + ")");
+                return isDir;
+            }
+
+            Logger::log("Attempting to create directory: " + path);
+            bool success = std::filesystem::create_directories(path);
+
+            if (success)
+            {
+                Logger::log("Successfully created directory: " + path);
+
+                // Verify the directory was actually created
+                if (std::filesystem::exists(path) && std::filesystem::is_directory(path))
+                {
+                    Logger::log("Verified directory creation: " + path);
+                    return true;
+                }
+                else
+                {
+                    Logger::log("Directory creation reported success but verification failed: " + path);
+                    return false;
+                }
+            }
+            else
+            {
+                Logger::log("create_directories returned false for: " + path);
+                return false;
+            }
+        }
+        catch (const std::filesystem::filesystem_error &e)
+        {
+            Logger::log("Filesystem error creating directory " + path + ": " + e.what());
+            Logger::log("Error code: " + std::to_string(e.code().value()) + " - " + e.code().message());
+            return false;
+        }
+        catch (const std::exception &e)
+        {
+            Logger::log("General exception creating directory " + path + ": " + e.what());
+            return false;
+        }
+    }
+
+    std::string sanitizeFileName(const std::string &filename)
+    {
+        std::string sanitized = filename;
+        std::string invalidChars = "<>:\"/\\/?*";
+        for (char &c : sanitized)
+        {
+            if (invalidChars.find(c) != std::string::npos || c < 32)
+            {
+                c = '_';
+            }
+        }
+        sanitized.erase(0, sanitized.find_first_not_of(" ."));
+        sanitized.erase(sanitized.find_last_not_of(" .") + 1);
+
+        if (sanitized.empty())
+        {
+            sanitized = "untitled";
+        }
+        return sanitized;
+    }
+
+    std::string createOutputDirectory(const std::string &gameName)
+    {
+        std::string home = getHomeDirectory();
+        if (home.empty())
+        {
+            Logger::log("Could not determine home directory");
+            return "";
+        }
+
+        Logger::log("Home directory: " + home);
+
+        std::string os = getOperatingSystem();
+        std::string steamLogDir;
+
+        if (os == "Windows")
+        {
+            steamLogDir = home + "\\steam-logs";
+        }
+        else
+        {
+            steamLogDir = home + "/steam-logs";
+        }
+
+        Logger::log("Attempting to create steam-logs directory: " + steamLogDir);
+
+        if (!createDirectory(steamLogDir))
+        {
+            Logger::log("Standard method failed, trying alternative approach...");
+
+            if (os == "Windows")
+            {
+#ifdef _WIN32
+                if (CreateDirectoryA(steamLogDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
+                {
+                    Logger::log("Windows API successfully created/found directory: " + steamLogDir);
+                }
+                else
+                {
+                    DWORD error = GetLastError();
+                    Logger::log("Windows API failed with error: " + std::to_string(error));
+
+                    std::string documentsDir = home + "\\Documents\\steam-logs";
+                    Logger::log("Trying fallback location: " + documentsDir);
+
+                    if (CreateDirectoryA(documentsDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
+                    {
+                        steamLogDir = documentsDir;
+                        Logger::log("Successfully created fallback directory: " + steamLogDir);
+                    }
+                    else
+                    {
+                        Logger::log("All directory creation attempts failed");
+                        return "";
+                    }
+                }
+#else
+                Logger::log("Windows API not available");
+                return "";
+#endif
+            }
+            else
+            {
+                Logger::log("Failed to create steam-logs directory and no fallback available for this OS");
+                return "";
+            }
+        }
+
+        if (!directoryExists(steamLogDir))
+        {
+            Logger::log("Directory verification failed: " + steamLogDir);
+            return "";
+        }
+
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        std::ostringstream timestamp;
+        timestamp << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
+
+        std::string sanitizedGameName = sanitizeFileName(gameName);
+        std::string gameDir;
+
+        if (os == "Windows")
+        {
+            gameDir = steamLogDir + "\\" + sanitizedGameName + "_" + timestamp.str();
+        }
+        else
+        {
+            gameDir = steamLogDir + "/" + sanitizedGameName + "_" + timestamp.str();
+        }
+
+        Logger::log("Creating game-specific directory: " + gameDir);
+
+        if (!createDirectory(gameDir))
+        {
+            Logger::log("Failed to create game directory: " + gameDir);
+            return "";
+        }
+
+        if (!directoryExists(gameDir))
+        {
+            Logger::log("Game directory verification failed: " + gameDir);
+            return "";
+        }
+
+        Logger::log("Successfully created output directory: " + gameDir);
+        return gameDir;
+    }
+
+    bool copyFile(const std::string &sourcePath, const std::string &destPath)
+    {
+        try
+        {
+            std::filesystem::copy_file(sourcePath, destPath,
+                                       std::filesystem::copy_options::overwrite_existing);
+            return true;
+        }
+        catch (const std::filesystem::filesystem_error &e)
+        {
+            Logger::log("Error copying file from " + sourcePath + " to " + destPath + ": " + e.what());
+            return false;
+        }
+    }
+
+    int copyLogsToDirectory(const std::vector<LogFile> &logFiles, const std::string &outputDir, const std::string &gameName)
+    {
+        if (logFiles.empty())
+        {
+            Logger::log("No log files to copy for game: " + gameName);
+            return 0;
+        }
+
+        Logger::log("Starting to copy " + std::to_string(logFiles.size()) + " log files to: " + outputDir);
+
+        int copiedCount = 0;
+        std::string os = getOperatingSystem();
+        std::string summaryPath;
+        if (os == "Windows")
+        {
+            summaryPath = outputDir + "\\log_summary.txt";
+        }
+        else
+        {
+            summaryPath = outputDir + "/log_summary.txt";
+        }
+
+        std::ofstream summaryFile(summaryPath);
+        if (summaryFile.is_open())
+        {
+            auto now = std::chrono::system_clock::now();
+            auto time_t = std::chrono::system_clock::to_time_t(now);
+
+            summaryFile << "Steam Log Collection Summary\n";
+            summaryFile << "============================\n";
+            summaryFile << "Game: " << gameName << "\n";
+            summaryFile << "Collection Date: " << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S") << "\n";
+            summaryFile << "Total Files Found: " << logFiles.size() << "\n\n";
+            summaryFile << "Files Collected:\n";
+            summaryFile << "-----------------\n";
+        }
+
+        for (size_t i = 0; i < logFiles.size(); ++i)
+        {
+            const auto &logFile = logFiles[i];
+
+            std::string destFileName = std::to_string(i + 1) + "_" + sanitizeFileName(logFile.filename);
+            destFileName = sanitizeFileName(destFileName);
+
+            std::string destPath;
+            if (os == "Windows")
+            {
+                destPath = outputDir + "\\" + destFileName;
+            }
+            else
+            {
+                destPath = outputDir + "/" + destFileName;
+            }
+
+            if (copyFile(logFile.path, destPath))
+            {
+                copiedCount++;
+                Logger::log("Copied: " + logFile.filename + "-->" + destFileName);
+                if (summaryFile.is_open())
+                {
+                    summaryFile << "[" << (i + 1) << "] " << destFileName << "\n";
+                    summaryFile << "Original: " << logFile.path << "\n";
+                    summaryFile << "Type: " << logFile.type << "\n";
+                    summaryFile << "Size: " << formatFileSize(logFile.size) << "\n";
+                    summaryFile << "Last Modified: " << logFile.lastModified << "\n\n";
+                }
+            }
+            else
+            {
+                Logger::log("Failed to copy: " + logFile.path);
+            }
+        }
+
+        if (summaryFile.is_open())
+        {
+            summaryFile << "Successfully copied " << copiedCount << "/" << logFiles.size() << " files\n";
+            summaryFile.close();
+            Logger::log("Log summary file created: " + summaryPath);
+        }
+        Logger::log("Copy operation completed. " + std::to_string(copiedCount) + " files copied successfully.");
+        return copiedCount;
+    }
 }

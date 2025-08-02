@@ -135,5 +135,41 @@ int main(int argc, char *argv[])
         std::cout << "[" << (i + 1) << "] " << logFiles[i].path << std::endl;
     }
 
+    std::cout << "\nDo you want to copy these log files to ~/steam-logs? (y/n): ";
+    std::string response;
+    std::getline(std::cin, response);
+
+    if (response == "y" || response == "Y" || response == "yes" || response == "Yes")
+    {
+        std::cout << "\nCreating output directory..." << std::endl;
+        std::string outputDir = SteamUtils::createOutputDirectory(foundGame->name);
+
+        if (outputDir.empty())
+        {
+            std::cerr << "Failed to create output directory. Cannot proceed with copying log files." << std::endl;
+            return 1;
+        }
+
+        std::cout << "Copying Log Files..." << std::endl;
+        int copiedFiles = SteamUtils::copyLogsToDirectory(logFiles, outputDir, foundGame->name);
+
+        if (copiedFiles > 0)
+        {
+            std::cout << "\n=== Copy Complete ===" << std::endl;
+            std::cout << "Successfully copied " << copiedFiles << " out of " << logFiles.size() << " log files" << std::endl;
+            std::cout << "Output Directory: " << outputDir << std::endl;
+            std::cout << "A summary file (log_summary.txt) has been created with details of all copied files." << std::endl;
+        }
+        else
+        {
+            std::cerr << "Failed to copy any log files" << std::endl;
+            return 1;
+        }
+    }
+    else
+    {
+        std::cout << "Log files were not copied." << std::endl;
+    }
+
     return 0;
 }

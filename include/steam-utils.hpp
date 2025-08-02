@@ -130,5 +130,43 @@ namespace SteamUtils
      * @return Formatted date/time string
      */
     std::string formatFileTime(const std::string &filePath);
+
+    /**
+     * @brief Creates the output directory for copied logs
+     * @param gameName Name of the game
+     * @return Path to the created output directory, empty string if creation failed
+     */
+    std::string createOutputDirectory(const std::string &gameName);
+
+    /**
+     * @brief Copies log files to the output directory
+     * @param logFiles Vector of log files to copy
+     * @param outputDir Directory to copy files to
+     * @param gameName Name of the game
+     * @return Number of files successfully copied
+     */
+    int copyLogsToDirectory(const std::vector<LogFile> &logFiles, const std::string &outputDir, const std::string &gameName);
+
+    /**
+     * @brief Safely copies a single file
+     * @param sourcePath source file path
+     * @param destPath destination file path
+     * @return True if copy was successful, false otherwise
+     */
+    bool copyFile(const std::string &sourcePath, const std::string &destPath);
+
+    /**
+     * @brief Creates a directory recursively if it does not exist
+     * @param path Directory path to create
+     * @return True if the directory was created or already exists, false otherwise
+     */
+    bool createDirectory(const std::string &path);
+
+    /**
+     * @brief Sanitizes a file name for safe file system usage
+     * @param filename The original file name
+     * @return Sanitized file name safe for file system usage
+     */
+    std::string sanitizeFileName(const std::string &filename);
 }
 #endif
