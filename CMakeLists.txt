@@ -20,6 +20,13 @@ if(NOT GTKMM_FOUND)
         GIT_TAG 2.78.0
         GIT_SHALLOW TRUE
     )
+
+    FetchContent_Declare(
+        glibmm
+        GIT_REPOSITORY https://gitlab.gnome.org/GNOME/glibmm.git
+        GIT_TAG 2.78.0
+        GIT_SHALLOW TRUE
+    )
     
     FetchContent_Declare(
         gtk4
@@ -42,15 +49,17 @@ if(NOT GTKMM_FOUND)
     set(GTKMM_BUILD_EXAMPLES OFF CACHE BOOL "Build gtkmm examples" FORCE)
     set(GTKMM_BUILD_TESTS OFF CACHE BOOL "Build gtkmm tests" FORCE)
     
-    FetchContent_MakeAvailable(glib gtk4 gtkmm4)
+    FetchContent_MakeAvailable(glib gtk4 gtkmm4 glibmm)
     
     set(GTKMM_INCLUDE_DIRS 
-        ${gtkmm4_SOURCE_DIR}
-        ${gtk4_SOURCE_DIR}
-        ${glib_SOURCE_DIR}
-        ${gtkmm4_BINARY_DIR}
-        ${gtk4_BINARY_DIR}
-        ${glib_BINARY_DIR}
+        ${gtkmm4_SOURCE_DIR}/gtk
+        ${gtk4_SOURCE_DIR}/gtk
+        ${glib_SOURCE_DIR}/glib
+        ${glibmm_SOURCE_DIR}/glib
+        ${gtkmm4_BINARY_DIR}/gtk
+        ${gtk4_BINARY_DIR}/gtk
+        ${glib_BINARY_DIR}/glib
+        ${glibmm_BINARY_DIR}/glib
     )
     set(GTKMM_LIBRARIES gtkmm-4.0)
     set(GTKMM_LIBRARY_DIRS)
