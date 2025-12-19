@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
     if (!glfwInit())
         return 1;
 
-    const char *glsl_version = "#version 130";
+    const char *glsl_version = "#version 330";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
@@ -35,9 +35,23 @@ int main(int argc, char *argv[])
     ImGuiIO &io = ImGui::GetIO();
     (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    /*
+        float font_size = 32.0f;
+        io.Fonts->AddFontDefault();
+        ImFont *font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\Roboto-Medium.ttf", font_size);
 
+        if (font == nullptr)
+        {
+            ImFontConfig config;
+            config.SizePixels = font_size;
+            io.Fonts->AddFontDefault(&config);
+        }
+    */
     ImGui::StyleColorsDark();
-
+    /*
+        ImGuiStyle &style = ImGui::GetStyle();
+        style.ScaleAllSizes(1.2f);
+    */
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
@@ -168,7 +182,6 @@ int main(int argc, char *argv[])
 
             ImGui::BeginChild("LogFilesList", ImVec2(0, 250), true);
 
-            // Table headers
             ImGui::Columns(4, "logfiles");
             ImGui::Separator();
             ImGui::Text("File Name");
