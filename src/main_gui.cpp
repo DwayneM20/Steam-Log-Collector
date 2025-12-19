@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 
     const char *glsl_version = "#version 330";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 
     GLFWwindow *window = glfwCreateWindow(
         1280, 720, "Steam Log Collector", nullptr, nullptr);
