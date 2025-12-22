@@ -108,7 +108,7 @@ sudo pacman -S mesa libx11 libxrandr libxinerama libxcursor libxi
 
 ```powershell
 # Clone the repository
-git clone <repository-url>
+git clone [text](https://github.com/DwayneM20/Steam-Log-Collector)
 cd Steam-Log-Collector
 
 # Create build directory
@@ -142,7 +142,7 @@ cmake --build . --config Release
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone [text](https://github.com/DwayneM20/Steam-Log-Collector)
 cd Steam-Log-Collector
 
 # Create build directory
@@ -166,7 +166,7 @@ make -j$(sysctl -n hw.ncpu)
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone [text](https://github.com/DwayneM20/Steam-Log-Collector)
 cd Steam-Log-Collector
 
 # Create build directory
