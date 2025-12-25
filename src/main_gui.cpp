@@ -12,6 +12,9 @@
 #include "fonts.hpp"
 #include "ui_widgets.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 static void glfw_error_callback(int error, const char *description)
 {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
@@ -320,6 +323,22 @@ void RenderLogFilesSection(AppState &state)
     }
 }
 
+bool SetWindowIcon(GLFWwindow *window, const char *iconPath)
+{
+    GLFWimage icon;
+    icon.pixels = stbi_load(iconPath, &icon.width, &icon.height, 0, 4);
+
+    if (!icon.pixels)
+    {
+        fprintf(stderr, "Failed to load icon: %s\n", iconPath);
+        return false;
+    }
+
+    glfwSetWindowIcon(window, 1, &icon);
+    stbi_image_free(icon.pixels);
+    return true;
+}
+
 int main(int argc, char *argv[])
 {
     glfwSetErrorCallback(glfw_error_callback);
@@ -334,6 +353,8 @@ int main(int argc, char *argv[])
         1400, 900, "Steam Log Collector", nullptr, nullptr);
     if (window == nullptr)
         return 1;
+
+    SetWindowIcon(window, "resources/SLC-logo.png");
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);

@@ -25,6 +25,13 @@ if(BUILD_GUI)
     )
     FetchContent_MakeAvailable(imgui)
 
+    FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG master
+    )
+    FetchContent_MakeAvailable(stb)
+
     set(IMGUI_SOURCES
         ${imgui_SOURCE_DIR}/imgui.cpp
         ${imgui_SOURCE_DIR}/imgui_demo.cpp
@@ -38,6 +45,7 @@ if(BUILD_GUI)
      include_directories(
         ${imgui_SOURCE_DIR}
         ${imgui_SOURCE_DIR}/backends
+        ${stb_SOURCE_DIR}
     )
 
     add_executable(steam-log-collector-gui
@@ -46,6 +54,9 @@ if(BUILD_GUI)
     src/steam-utils.cpp
     ${IMGUI_SOURCES}
     )
+
+    file(COPY ${CMAKE_SOURCE_DIR}/resources 
+        DESTINATION ${CMAKE_BINARY_DIR})
 
     target_link_libraries(steam-log-collector-gui
         glfw
@@ -64,5 +75,6 @@ add_executable(steam-log-collector-cli
 )
 
 if(WIN32)
+    target_sources(steam-log-collector-gui PRIVATE resources/icon.rc)
     target_link_libraries(steam-log-collector-cli advapi32)
 endif()
