@@ -4,6 +4,8 @@
 #include <GLFW/glfw3.h>
 #include <string>
 #include <vector>
+#include <fstream>
+#include <sstream>
 
 #include "logger.hpp"
 #include "steam-utils.hpp"
@@ -25,12 +27,53 @@ struct AppState
     std::string steamDir;
     std::vector<SteamUtils::GameInfo> games;
     std::vector<SteamUtils::LogFile> logFiles;
+    std::vector<bool> selectedLogs;
     int selectedGameIndex = -1;
+    int previewLogIndex = -1;
     bool steamDirFound = false;
     bool scanningGames = false;
     std::string statusMessage = "Click 'Find Steam Directory' to begin";
+    std::string previewContent;
     bool showAboutPopup = false;
+    bool showPreviewWindow = false;
 };
+
+std::string ReadFileContent(
+    const std::string &filePath, size_t maxBytes = 1024 * 1024)
+{
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open())
+    {
+        return "Error: Could not open file for reading.";
+    }
+
+    std::ostringstream content;
+    char buffer[4096];
+    size_t bytesRead = 0;
+
+    while (file.read(buffer, sizeof(buffer)) && bytesRead < maxBytes)
+    {
+        size_t count = file.gcount();
+        content.write(buffer, count);
+        bytesRead += count;
+    }
+
+    if (file.gcount() > 0 && bytesRead < maxBytes)
+    {
+        content.write(buffer, file.gcount());
+        bytesRead += file.gcount();
+    }
+
+    file.close();
+
+    std::string result = content.str();
+    if (bytesRead >= maxBytes)
+    {
+        result += "\n\n[Preview truncated - file is larger than 1MB]";
+    }
+
+    return result;
+}
 
 void RenderMenuBar(AppState &state, GLFWwindow *window)
 {
@@ -94,6 +137,70 @@ void RenderAboutPopup(AppState &state)
 
         ImGui::EndPopup();
     }
+}
+
+void RenderPreviewWindow(AppState &state)
+{
+    if (!state.showPreviewWindow)
+        return;
+
+    ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(
+        center, ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+
+    if (ImGui::Begin(
+            "Log File Preview",
+            &state.showPreviewWindow,
+            ImGuiWindowFlags_NoCollapse))
+    {
+        if (state.previewLogIndex >= 0 &&
+            state.previewLogIndex < state.logFiles.size())
+        {
+            const auto &log = state.logFiles[state.previewLogIndex];
+
+            ImGui::PushFont(UIFonts::Large);
+            ImGui::TextColored(UIColors::LavenderBlue, "%s", log.filename.c_str());
+            ImGui::PopFont();
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            UIWidgets::InfoText("Path:", log.path);
+            UIWidgets::InfoText("Size:", SteamUtils::formatFileSize(log.size));
+            UIWidgets::InfoText("Type:", log.type);
+            UIWidgets::InfoText("Modified:", log.lastModified);
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            ImGui::BeginChild(
+                "PreviewContent",
+                ImVec2(0, -40),
+                true,
+                ImGuiWindowFlags_HorizontalScrollbar);
+
+            ImGui::PushFont(UIFonts::Small);
+            ImGui::TextUnformatted(state.previewContent.c_str());
+            ImGui::PopFont();
+
+            ImGui::EndChild();
+
+            ImGui::Spacing();
+
+            if (UIWidgets::PrimaryButton("Close", ImVec2(120, 0)))
+            {
+                state.showPreviewWindow = false;
+            }
+        }
+        else
+        {
+            ImGui::Text("No file selected for preview.");
+        }
+    }
+    ImGui::End();
 }
 
 void RenderStatusSection(AppState &state)
@@ -175,6 +282,7 @@ void RenderGamesSection(AppState &state)
             "Found " + std::to_string(state.games.size()) + " games";
         state.selectedGameIndex = -1;
         state.logFiles.clear();
+        state.selectedLogs.clear();
         state.scanningGames = false;
     }
 
@@ -203,6 +311,7 @@ void RenderGamesSection(AppState &state)
             {
                 state.selectedGameIndex = i;
                 state.logFiles.clear();
+                state.selectedLogs.clear();
             }
 
             if (isSelected)
@@ -241,6 +350,8 @@ void RenderSelectedGameSection(AppState &state)
     {
         state.statusMessage = "Searching for log files...";
         state.logFiles = SteamUtils::findGameLogs(state.steamDir, game);
+        state.selectedLogs.clear();
+        state.selectedLogs.resize(state.logFiles.size(), false);
         state.statusMessage = "Found " +
                               std::to_string(state.logFiles.size()) +
                               " log files";
@@ -260,13 +371,28 @@ void RenderLogFilesSection(AppState &state)
     ImGui::Text("Found %zu log files", state.logFiles.size());
     ImGui::PopFont();
 
+    ImGui::SameLine(ImGui::GetWindowWidth() - 280);
+    if (UIWidgets::SecondaryButton("Select All", ImVec2(120, 0)))
+    {
+        for (auto &selected : state.selectedLogs)
+            selected = true;
+    }
+
+    ImGui::SameLine();
+    if (UIWidgets::SecondaryButton("Deselect All", ImVec2(120, 0)))
+    {
+        for (auto &selected : state.selectedLogs)
+            selected = false;
+    }
+
     ImGui::BeginChild("LogFilesList", ImVec2(0, 280), true);
 
     if (ImGui::BeginTable(
-            "LogFilesTable", 4,
+            "LogFilesTable", 5,
             ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                 ImGuiTableFlags_ScrollY))
     {
+        ImGui::TableSetupColumn("Select", ImGuiTableColumnFlags_WidthFixed, 50);
         ImGui::TableSetupColumn(
             "File Name", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 100);
@@ -275,21 +401,38 @@ void RenderLogFilesSection(AppState &state)
             "Modified", ImGuiTableColumnFlags_WidthFixed, 150);
         ImGui::TableHeadersRow();
 
-        for (const auto &log : state.logFiles)
+        for (size_t i = 0; i < state.logFiles.size(); ++i)
         {
+            const auto &log = state.logFiles[i];
             ImGui::TableNextRow();
 
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%s", log.filename.c_str());
+            ImGui::PushID(static_cast<int>(i));
+            bool selected = state.selectedLogs[i];
+            ImGui::Checkbox("##select", &selected);
+            state.selectedLogs[i] = selected;
+            ImGui::PopID();
 
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextColored(UIColors::LightTeal, "%s", log.type.c_str());
+            bool isClickable = ImGui::Selectable(
+                log.filename.c_str(),
+                state.previewLogIndex == static_cast<int>(i),
+                ImGuiSelectableFlags_SpanAllColumns |
+                    ImGuiSelectableFlags_AllowOverlap);
+
+            if (isClickable)
+            {
+                state.previewLogIndex = static_cast<int>(i);
+            }
 
             ImGui::TableSetColumnIndex(2);
+            ImGui::TextColored(UIColors::LightTeal, "%s", log.type.c_str());
+
+            ImGui::TableSetColumnIndex(3);
             ImGui::Text(
                 "%s", SteamUtils::formatFileSize(log.size).c_str());
 
-            ImGui::TableSetColumnIndex(3);
+            ImGui::TableSetColumnIndex(4);
             ImGui::PushFont(UIFonts::Small);
             ImGui::Text("%s", log.lastModified.c_str());
             ImGui::PopFont();
@@ -302,24 +445,68 @@ void RenderLogFilesSection(AppState &state)
 
     ImGui::Spacing();
 
-    if (UIWidgets::PrimaryButton(
-            "Copy Log Files to ~/steam-logs", ImVec2(250, 40)))
+    if (state.previewLogIndex >= 0 &&
+        state.previewLogIndex < state.logFiles.size())
     {
-        const auto &game = state.games[state.selectedGameIndex];
-        std::string outputDir =
-            SteamUtils::createOutputDirectory(game.name);
+        if (UIWidgets::SecondaryButton(
+                "Preview Selected File", ImVec2(220, 40)))
+        {
+            state.previewContent = ReadFileContent(
+                state.logFiles[state.previewLogIndex].path);
+            state.showPreviewWindow = true;
+        }
+        // ImGui::SameLine();
+    }
 
-        if (!outputDir.empty())
+    ImGui::Spacing();
+
+    int selectedCount = 0;
+    for (bool selected : state.selectedLogs)
+    {
+        if (selected)
+            selectedCount++;
+    }
+
+    if (selectedCount > 0)
+    {
+        std::string copyButtonText =
+            "Copy Selected (" + std::to_string(selectedCount) + ")";
+
+        if (UIWidgets::PrimaryButton(
+                copyButtonText.c_str(), ImVec2(250, 40)))
         {
-            int copied = SteamUtils::copyLogsToDirectory(
-                state.logFiles, outputDir, game.name);
-            state.statusMessage = "Copied " + std::to_string(copied) +
-                                  " files to " + outputDir;
+            const auto &game = state.games[state.selectedGameIndex];
+            std::string outputDir =
+                SteamUtils::createOutputDirectory(game.name);
+
+            if (!outputDir.empty())
+            {
+                std::vector<SteamUtils::LogFile> selectedLogFiles;
+                for (size_t i = 0; i < state.logFiles.size(); ++i)
+                {
+                    if (state.selectedLogs[i])
+                    {
+                        selectedLogFiles.push_back(state.logFiles[i]);
+                    }
+                }
+
+                int copied = SteamUtils::copyLogsToDirectory(
+                    selectedLogFiles, outputDir, game.name);
+                state.statusMessage = "Copied " + std::to_string(copied) +
+                                      " file(s) to " + outputDir;
+            }
+            else
+            {
+                state.statusMessage = "Failed to create output directory";
+            }
         }
-        else
-        {
-            state.statusMessage = "Failed to create output directory";
-        }
+    }
+    else
+    {
+        ImGui::BeginDisabled();
+        ImGui::Button(
+            "Copy Selected (0)", ImVec2(250, 40));
+        ImGui::EndDisabled();
     }
 }
 
@@ -387,7 +574,8 @@ int main(int argc, char *argv[])
             "Steam Log Collector",
             nullptr,
             ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar);
+                ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar |
+                ImGuiWindowFlags_NoTitleBar);
 
         RenderMenuBar(state, window);
         RenderAboutPopup(state);
@@ -400,6 +588,8 @@ int main(int argc, char *argv[])
         RenderLogFilesSection(state);
 
         ImGui::End();
+
+        RenderPreviewWindow(state);
 
         ImGui::Render();
         int display_w, display_h;
