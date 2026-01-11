@@ -191,7 +191,7 @@ void RenderPreviewWindow(AppState &state)
 
             ImGui::BeginChild("PreviewContent", ImVec2(0, -50), true,
                               ImGuiWindowFlags_HorizontalScrollbar);
-            ImGui::PushFont(UIFonts::Small);
+            ImGui::PushFont(UIFonts::Medium);
             ImGui::TextUnformatted(state.previewContent.c_str());
             ImGui::PopFont();
             ImGui::EndChild();
@@ -836,8 +836,14 @@ void RenderLogFilesScreen(AppState &state)
                 ImGui::TableSetColumnIndex(0);
                 ImGui::PushID(static_cast<int>(i));
                 bool selected = state.selectedLogs[i];
-                ImGui::Checkbox("##select", &selected);
-                state.selectedLogs[i] = selected;
+                if (ImGui::Checkbox("##select", &selected))
+                {
+                    state.selectedLogs[i] = selected;
+                    if (selected)
+                    {
+                        state.previewLogIndex = static_cast<int>(i);
+                    }
+                }
                 ImGui::PopID();
 
                 ImGui::TableSetColumnIndex(1);
