@@ -6,6 +6,7 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 
 #include "logger.hpp"
 #include "steam-utils.hpp"
@@ -22,24 +23,39 @@ static void glfw_error_callback(int error, const char *description)
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+enum class Screen
+{
+    Welcome,
+    GameSelection,
+    LogFiles
+};
+
 struct AppState
 {
+    Screen currentScreen = Screen::Welcome;
+
     std::string steamDir;
+    char manualSteamDir[512] = "";
     std::vector<SteamUtils::GameInfo> games;
     std::vector<SteamUtils::LogFile> logFiles;
     std::vector<bool> selectedLogs;
     int selectedGameIndex = -1;
     int previewLogIndex = -1;
+
     bool steamDirFound = false;
     bool scanningGames = false;
-    std::string statusMessage = "Click 'Find Steam Directory' to begin";
+    bool scanningLogs = false;
+
+    std::string errorMessage;
+    std::string statusMessage;
     std::string previewContent;
+
     bool showAboutPopup = false;
     bool showPreviewWindow = false;
 };
 
-std::string ReadFileContent(
-    const std::string &filePath, size_t maxBytes = 1024 * 1024)
+std::string ReadFileContent(const std::string &filePath,
+                            size_t maxBytes = 1024 * 1024)
 {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open())
@@ -104,17 +120,13 @@ void RenderAboutPopup(AppState &state)
     }
 
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-    ImGui::SetNextWindowPos(
-        center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-    if (ImGui::BeginPopupModal(
-            "About Steam Log Collector",
-            nullptr,
-            ImGuiWindowFlags_AlwaysAutoResize))
+    if (ImGui::BeginPopupModal("About Steam Log Collector", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::PushFont(UIFonts::Large);
-        ImGui::TextColored(
-            UIColors::LavenderBlue, "Steam Log Collector");
+        ImGui::TextColored(UIColors::LavenderBlue, "Steam Log Collector");
         ImGui::PopFont();
 
         ImGui::Spacing();
@@ -126,7 +138,6 @@ void RenderAboutPopup(AppState &state)
         ImGui::Text("© 2024 Steam Log Collector Contributors");
         ImGui::Text("All rights reserved.");
         ImGui::Text("This software is licensed under the MIT License.");
-        ImGui::Text("See the LICENSE file for details.");
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -144,23 +155,24 @@ void RenderPreviewWindow(AppState &state)
     if (!state.showPreviewWindow)
         return;
 
-    ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+    ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowSize(
+        ImVec2(displaySize.x * 0.7f, displaySize.y * 0.8f),
+        ImGuiCond_FirstUseEver);
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-    ImGui::SetNextWindowPos(
-        center, ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowPos(center, ImGuiCond_FirstUseEver, ImVec2(0.5f, 0.5f));
 
-    if (ImGui::Begin(
-            "Log File Preview",
-            &state.showPreviewWindow,
-            ImGuiWindowFlags_NoCollapse))
+    if (ImGui::Begin("Log File Preview", &state.showPreviewWindow,
+                     ImGuiWindowFlags_NoCollapse))
     {
         if (state.previewLogIndex >= 0 &&
-            state.previewLogIndex < state.logFiles.size())
+            state.previewLogIndex < static_cast<int>(state.logFiles.size()))
         {
             const auto &log = state.logFiles[state.previewLogIndex];
 
             ImGui::PushFont(UIFonts::Large);
-            ImGui::TextColored(UIColors::LavenderBlue, "%s", log.filename.c_str());
+            ImGui::TextColored(UIColors::LavenderBlue, "%s",
+                               log.filename.c_str());
             ImGui::PopFont();
 
             ImGui::Spacing();
@@ -168,7 +180,8 @@ void RenderPreviewWindow(AppState &state)
             ImGui::Spacing();
 
             UIWidgets::InfoText("Path:", log.path);
-            UIWidgets::InfoText("Size:", SteamUtils::formatFileSize(log.size));
+            UIWidgets::InfoText("Size:",
+                                SteamUtils::formatFileSize(log.size));
             UIWidgets::InfoText("Type:", log.type);
             UIWidgets::InfoText("Modified:", log.lastModified);
 
@@ -176,16 +189,11 @@ void RenderPreviewWindow(AppState &state)
             ImGui::Separator();
             ImGui::Spacing();
 
-            ImGui::BeginChild(
-                "PreviewContent",
-                ImVec2(0, -40),
-                true,
-                ImGuiWindowFlags_HorizontalScrollbar);
-
+            ImGui::BeginChild("PreviewContent", ImVec2(0, -50), true,
+                              ImGuiWindowFlags_HorizontalScrollbar);
             ImGui::PushFont(UIFonts::Small);
             ImGui::TextUnformatted(state.previewContent.c_str());
             ImGui::PopFont();
-
             ImGui::EndChild();
 
             ImGui::Spacing();
@@ -203,279 +211,538 @@ void RenderPreviewWindow(AppState &state)
     ImGui::End();
 }
 
-void RenderStatusSection(AppState &state)
+void RenderWelcomeScreen(AppState &state)
 {
-    ImGui::PushFont(UIFonts::Default);
+    ImVec2 windowSize = ImGui::GetContentRegionAvail();
+    float padding = windowSize.x * 0.05f;
 
-    if (state.steamDirFound)
-        UIWidgets::StatusBadge("Ready", UIColors::Success);
-    else if (state.scanningGames)
-        UIWidgets::StatusBadge("Scanning...", UIColors::Warning);
-    else
-        UIWidgets::StatusBadge("Not Ready", UIColors::CoolGray);
+    // Calculate content width - use more space on larger screens
+    float contentWidth = std::min(windowSize.x * 0.6f, 800.0f);
+    contentWidth = std::max(contentWidth, 400.0f);
+    float startX = (windowSize.x - contentWidth) / 2.0f;
 
-    ImGui::SameLine();
-    ImGui::TextColored(UIColors::OffWhite, "%s", state.statusMessage.c_str());
+    // Vertical centering - place content in upper-middle area
+    float totalContentHeight = 500.0f;
+    float startY = std::max((windowSize.y - totalContentHeight) * 0.35f, 20.0f);
+    ImGui::SetCursorPosY(startY);
 
+    // Title section
+    ImGui::PushFont(UIFonts::Title);
+    float titleWidth = ImGui::CalcTextSize("Steam Log Collector").x;
+    ImGui::SetCursorPosX((windowSize.x - titleWidth) / 2.0f);
+    ImGui::TextColored(UIColors::LavenderBlue, "Steam Log Collector");
     ImGui::PopFont();
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-}
 
-void RenderSteamDirectorySection(AppState &state)
-{
-    UIWidgets::SectionHeader("Steam Installation");
+    ImGui::Spacing();
 
-    if (UIWidgets::PrimaryButton(
-            "Find Steam Directory", ImVec2(200, 40)))
+    ImGui::PushFont(UIFonts::Default);
+    const char *subtitle = "Collect and organize game log files from Steam";
+    float subtitleWidth = ImGui::CalcTextSize(subtitle).x;
+    ImGui::SetCursorPosX((windowSize.x - subtitleWidth) / 2.0f);
+    ImGui::TextColored(UIColors::CoolGray, "%s", subtitle);
+    ImGui::PopFont();
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Main content card
+    float cardHeight = std::min(windowSize.y * 0.5f, 600.0f);
+    cardHeight = std::max(cardHeight, 300.0f);
+
+    ImGui::SetCursorPosX(startX);
+    ImGui::BeginChild("WelcomeCard", ImVec2(contentWidth, cardHeight), true);
+
+    float innerPadding = contentWidth * 0.04f;
+    ImGui::SetCursorPos(ImVec2(innerPadding, innerPadding));
+
+    ImGui::BeginGroup();
+
+    UIWidgets::SectionHeader("Get Started");
+
+    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + contentWidth -
+                           innerPadding * 2);
+    ImGui::TextWrapped(
+        "To begin collecting log files, we need to locate your Steam "
+        "installation directory. You can either auto-detect it or "
+        "manually specify the path.");
+    ImGui::PopTextWrapPos();
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Auto-detect button
+    float buttonWidth = contentWidth - innerPadding * 2;
+    float buttonHeight = std::max(windowSize.y * 0.06f, 45.0f);
+
+    if (UIWidgets::PrimaryButton("Auto-Detect Steam Directory",
+                                 ImVec2(buttonWidth, buttonHeight)))
     {
+        state.errorMessage.clear();
         state.statusMessage = "Searching for Steam...";
         state.steamDir = SteamUtils::findSteamDirectory();
 
         if (!state.steamDir.empty())
         {
             state.steamDirFound = true;
-            state.statusMessage = "Steam directory found!";
             Logger::log("Found Steam directory: " + state.steamDir);
+            state.games = SteamUtils::getInstalledGames(state.steamDir);
+            state.currentScreen = Screen::GameSelection;
         }
         else
         {
-            state.steamDirFound = false;
-            state.statusMessage = "Steam directory not found";
+            state.errorMessage =
+                "Could not auto-detect Steam directory. "
+                "Please enter the path manually.";
         }
     }
 
-    if (!state.steamDir.empty())
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Divider with "or"
+    ImVec2 cursorPos = ImGui::GetCursorPos();
+    float dividerY = cursorPos.y + 8;
+    float dividerWidth = (buttonWidth - 40) / 2.0f;
+
+    ImDrawList *drawList = ImGui::GetWindowDrawList();
+    ImVec2 windowPos = ImGui::GetWindowPos();
+
+    drawList->AddLine(
+        ImVec2(windowPos.x + innerPadding, windowPos.y + dividerY),
+        ImVec2(windowPos.x + innerPadding + dividerWidth, windowPos.y + dividerY),
+        ImGui::ColorConvertFloat4ToU32(UIColors::CoolGray), 1.0f);
+
+    ImGui::SetCursorPosX(innerPadding + dividerWidth + 5);
+    ImGui::TextColored(UIColors::CoolGray, " or ");
+
+    drawList->AddLine(
+        ImVec2(windowPos.x + innerPadding + dividerWidth + 40,
+               windowPos.y + dividerY),
+        ImVec2(windowPos.x + innerPadding + buttonWidth,
+               windowPos.y + dividerY),
+        ImGui::ColorConvertFloat4ToU32(UIColors::CoolGray), 1.0f);
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Manual input
+    ImGui::Text("Enter Steam directory path:");
+    ImGui::SetNextItemWidth(buttonWidth);
+    ImGui::InputText("##steamdir", state.manualSteamDir,
+                     sizeof(state.manualSteamDir));
+
+    ImGui::Spacing();
+
+    if (UIWidgets::SecondaryButton("Use Manual Path",
+                                   ImVec2(buttonWidth, buttonHeight * 0.85f)))
+    {
+        state.errorMessage.clear();
+        std::string manualPath = state.manualSteamDir;
+
+        if (manualPath.empty())
+        {
+            state.errorMessage = "Please enter a directory path.";
+        }
+        else if (!SteamUtils::directoryExists(manualPath))
+        {
+            state.errorMessage = "Directory does not exist: " + manualPath;
+        }
+        else if (!SteamUtils::isValidSteamDirectory(manualPath))
+        {
+            state.errorMessage =
+                "This does not appear to be a valid Steam directory.";
+        }
+        else
+        {
+            state.steamDir = manualPath;
+            state.steamDirFound = true;
+            Logger::log("Using manual Steam directory: " + state.steamDir);
+            state.games = SteamUtils::getInstalledGames(state.steamDir);
+            state.currentScreen = Screen::GameSelection;
+        }
+    }
+
+    ImGui::EndGroup();
+    ImGui::EndChild();
+
+    // Error message
+    if (!state.errorMessage.empty())
     {
         ImGui::Spacing();
-        ImGui::BeginChild(
-            "SteamDirDisplay",
-            ImVec2(0, 60),
-            true,
-            ImGuiWindowFlags_NoScrollbar);
+        ImGui::SetCursorPosX(startX);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg,
+                              ImVec4(UIColors::Error.x, UIColors::Error.y,
+                                     UIColors::Error.z, 0.2f));
+        ImGui::BeginChild("ErrorBox", ImVec2(contentWidth, 60), true);
+        ImGui::SetCursorPos(ImVec2(15, 15));
+        ImGui::TextColored(UIColors::Error, "%s", state.errorMessage.c_str());
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
+    }
+}
 
-        ImGui::PushFont(UIFonts::Small);
-        ImGui::TextColored(UIColors::CoolGray, "Installation Path:");
-        ImGui::TextWrapped("%s", state.steamDir.c_str());
+void RenderGameSelectionScreen(AppState &state)
+{
+    ImVec2 windowSize = ImGui::GetContentRegionAvail();
+    float padding = std::max(windowSize.x * 0.03f, 20.0f);
+    float contentWidth = windowSize.x - padding * 2;
+
+    ImGui::SetCursorPosX(padding);
+
+    // Header row
+    ImGui::BeginGroup();
+
+    ImGui::PushFont(UIFonts::Title);
+    ImGui::TextColored(UIColors::LavenderBlue, "Select a Game");
+    ImGui::PopFont();
+
+    ImGui::SameLine(contentWidth - 80);
+    if (UIWidgets::SecondaryButton("Back", ImVec2(100, 35)))
+    {
+        state.currentScreen = Screen::Welcome;
+        state.steamDir.clear();
+        state.steamDirFound = false;
+        state.games.clear();
+        state.errorMessage.clear();
+    }
+
+    ImGui::EndGroup();
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Steam directory info bar
+    ImGui::SetCursorPosX(padding);
+    float infoBarHeight = std::max(windowSize.y * 0.08f, 70.0f);
+    ImGui::BeginChild("SteamInfo", ImVec2(contentWidth, infoBarHeight), true);
+
+    float infoPadding = 15.0f;
+    ImGui::SetCursorPos(ImVec2(infoPadding, infoPadding));
+
+    ImGui::BeginGroup();
+    ImGui::PushFont(UIFonts::Default);
+    ImGui::TextColored(UIColors::CoolGray, "Steam Directory:");
+    ImGui::SameLine();
+    ImGui::TextColored(UIColors::OffWhite, "%s", state.steamDir.c_str());
+
+    ImGui::TextColored(UIColors::CoolGray, "Games Found:");
+    ImGui::SameLine();
+    ImGui::TextColored(UIColors::OffWhite, "%zu", state.games.size());
+    ImGui::PopFont();
+    ImGui::EndGroup();
+
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Games list or empty state
+    ImGui::SetCursorPosX(padding);
+    float listHeight = windowSize.y - ImGui::GetCursorPosY() - padding;
+
+    if (state.games.empty())
+    {
+        ImGui::BeginChild("NoGames", ImVec2(contentWidth, listHeight), true);
+
+        float centerY = listHeight / 2.0f - 60.0f;
+        ImGui::SetCursorPosY(centerY);
+
+        ImGui::PushFont(UIFonts::Large);
+        const char *noGamesText = "No Games Found";
+        float textWidth = ImGui::CalcTextSize(noGamesText).x;
+        ImGui::SetCursorPosX((contentWidth - textWidth) / 2.0f);
+        ImGui::TextColored(UIColors::CoolGray, "%s", noGamesText);
         ImGui::PopFont();
+
+        ImGui::Spacing();
+        ImGui::Spacing();
+
+        const char *helpText =
+            "No Steam games were detected in this directory.";
+        float helpWidth = ImGui::CalcTextSize(helpText).x;
+        ImGui::SetCursorPosX((contentWidth - helpWidth) / 2.0f);
+        ImGui::TextColored(UIColors::CoolGray, "%s", helpText);
+
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::Spacing();
+
+        float buttonWidth = 220.0f;
+        ImGui::SetCursorPosX((contentWidth - buttonWidth) / 2.0f);
+        if (UIWidgets::PrimaryButton("Try Different Directory",
+                                     ImVec2(buttonWidth, 50)))
+        {
+            state.currentScreen = Screen::Welcome;
+            state.steamDir.clear();
+            state.steamDirFound = false;
+        }
 
         ImGui::EndChild();
     }
-
-    ImGui::Spacing();
-}
-
-void RenderGamesSection(AppState &state)
-{
-    if (!state.steamDirFound)
-        return;
-
-    UIWidgets::SectionHeader("Installed Games");
-
-    if (UIWidgets::PrimaryButton("Scan for Games", ImVec2(200, 40)))
+    else
     {
-        state.scanningGames = true;
-        state.statusMessage = "Scanning for games...";
-        state.games = SteamUtils::getInstalledGames(state.steamDir);
-        state.statusMessage =
-            "Found " + std::to_string(state.games.size()) + " games";
-        state.selectedGameIndex = -1;
-        state.logFiles.clear();
-        state.selectedLogs.clear();
-        state.scanningGames = false;
-    }
+        ImGui::BeginChild("GamesList", ImVec2(contentWidth, listHeight), true);
 
-    if (!state.games.empty())
-    {
-        ImGui::Spacing();
+        float innerPadding = 15.0f;
+        ImGui::SetCursorPos(ImVec2(innerPadding, innerPadding));
+
         ImGui::PushFont(UIFonts::Default);
-        ImGui::Text("Found %zu games", state.games.size());
+        ImGui::TextColored(UIColors::CoolGray,
+                           "Click on a game to view its log files:");
         ImGui::PopFont();
 
-        ImGui::BeginChild(
-            "GamesList",
-            ImVec2(0, 220),
-            true);
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
 
-        for (int i = 0; i < state.games.size(); i++)
+        float itemWidth = contentWidth - innerPadding * 2 - 15;
+        float itemHeight = std::max(windowSize.y * 0.08f, 70.0f);
+
+        for (size_t i = 0; i < state.games.size(); i++)
         {
-            bool isSelected = (state.selectedGameIndex == i);
+            const auto &game = state.games[i];
 
-            if (isSelected)
-                ImGui::PushStyleColor(
-                    ImGuiCol_Header, UIColors::LavenderBlue);
+            ImGui::PushID(static_cast<int>(i));
 
-            if (ImGui::Selectable(
-                    state.games[i].name.c_str(), isSelected))
+            ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+            ImVec2 itemMax = ImVec2(cursorPos.x + itemWidth,
+                                    cursorPos.y + itemHeight);
+
+            bool hovered = ImGui::IsMouseHoveringRect(cursorPos, itemMax);
+
+            if (hovered)
             {
-                state.selectedGameIndex = i;
-                state.logFiles.clear();
-                state.selectedLogs.clear();
+                ImGui::PushStyleColor(
+                    ImGuiCol_ChildBg,
+                    ImVec4(UIColors::LavenderBlue.x, UIColors::LavenderBlue.y,
+                           UIColors::LavenderBlue.z, 0.15f));
             }
 
-            if (isSelected)
+            ImGui::BeginChild("GameItem", ImVec2(itemWidth, itemHeight), true,
+                              ImGuiWindowFlags_NoScrollbar);
+
+            ImGui::SetCursorPos(ImVec2(15, 12));
+
+            ImGui::PushFont(UIFonts::Large);
+            ImGui::TextColored(
+                hovered ? UIColors::LavenderBlue : UIColors::OffWhite, "%s",
+                game.name.c_str());
+            ImGui::PopFont();
+
+            ImGui::SetCursorPosX(15);
+            ImGui::PushFont(UIFonts::Small);
+            ImGui::TextColored(UIColors::CoolGray, "App ID: %s  |  %s",
+                               game.appId.c_str(), game.installDir.c_str());
+            ImGui::PopFont();
+
+            ImGui::EndChild();
+
+            if (hovered)
+            {
                 ImGui::PopStyleColor();
+
+                if (ImGui::IsMouseClicked(0))
+                {
+                    state.selectedGameIndex = static_cast<int>(i);
+                    state.logFiles.clear();
+                    state.selectedLogs.clear();
+                    state.previewLogIndex = -1;
+                    state.statusMessage.clear();
+                    state.errorMessage.clear();
+
+                    state.logFiles =
+                        SteamUtils::findGameLogs(state.steamDir, game);
+                    state.selectedLogs.resize(state.logFiles.size(), false);
+
+                    state.currentScreen = Screen::LogFiles;
+                }
+            }
+
+            ImGui::PopID();
+            ImGui::Spacing();
         }
 
         ImGui::EndChild();
     }
-
-    ImGui::Spacing();
 }
 
-void RenderSelectedGameSection(AppState &state)
+void RenderLogFilesScreen(AppState &state)
 {
     if (state.selectedGameIndex < 0 ||
-        state.selectedGameIndex >= state.games.size())
+        state.selectedGameIndex >= static_cast<int>(state.games.size()))
+    {
+        state.currentScreen = Screen::GameSelection;
         return;
-
-    UIWidgets::SectionHeader("Selected Game");
+    }
 
     const auto &game = state.games[state.selectedGameIndex];
 
-    ImGui::BeginChild("GameInfo", ImVec2(0, 120), true);
-    ImGui::PushFont(UIFonts::Large);
+    ImVec2 windowSize = ImGui::GetContentRegionAvail();
+    float padding = std::max(windowSize.x * 0.025f, 20.0f);
+    float contentWidth = windowSize.x - padding * 2;
+
+    ImGui::SetCursorPosX(padding);
+
+    // Back button
+    if (UIWidgets::SecondaryButton("< Back to Games", ImVec2(170, 35)))
+    {
+        state.currentScreen = Screen::GameSelection;
+        state.logFiles.clear();
+        state.selectedLogs.clear();
+        state.selectedGameIndex = -1;
+        state.previewLogIndex = -1;
+        state.statusMessage.clear();
+        state.errorMessage.clear();
+    }
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    // Game info card
+    ImGui::SetCursorPosX(padding);
+    float infoCardHeight = std::max(windowSize.y * 0.12f, 140.0f);
+    ImGui::BeginChild("GameInfoCard", ImVec2(contentWidth, infoCardHeight),
+                      true);
+
+    float cardPadding = 20.0f;
+    ImGui::SetCursorPos(ImVec2(cardPadding, cardPadding));
+
+    ImGui::PushFont(UIFonts::Title);
     ImGui::TextColored(UIColors::LavenderBlue, "%s", game.name.c_str());
     ImGui::PopFont();
 
     ImGui::Spacing();
-    UIWidgets::InfoText("App ID:", game.appId);
-    UIWidgets::InfoText("Install Directory:", game.installDir);
-    ImGui::EndChild();
 
-    ImGui::Spacing();
+    // Info columns
+    float colWidth = (contentWidth - cardPadding * 2) / 3.0f;
+    ImGui::Columns(3, nullptr, false);
+    ImGui::SetColumnWidth(0, colWidth);
+    ImGui::SetColumnWidth(1, colWidth);
+    ImGui::SetColumnWidth(2, colWidth);
 
-    if (UIWidgets::PrimaryButton("Find Log Files", ImVec2(200, 40)))
-    {
-        state.statusMessage = "Searching for log files...";
-        state.logFiles = SteamUtils::findGameLogs(state.steamDir, game);
-        state.selectedLogs.clear();
-        state.selectedLogs.resize(state.logFiles.size(), false);
-        state.statusMessage = "Found " +
-                              std::to_string(state.logFiles.size()) +
-                              " log files";
-    }
-
-    ImGui::Spacing();
-}
-
-void RenderLogFilesSection(AppState &state)
-{
-    if (state.logFiles.empty())
-        return;
-
-    UIWidgets::SectionHeader("Log Files");
-
+    ImGui::PushFont(UIFonts::Medium);
+    ImGui::TextColored(UIColors::CoolGray, "APP ID");
+    ImGui::PopFont();
     ImGui::PushFont(UIFonts::Default);
-    ImGui::Text("Found %zu log files", state.logFiles.size());
+    ImGui::Text("%s", game.appId.c_str());
     ImGui::PopFont();
 
-    ImGui::SameLine(ImGui::GetWindowWidth() - 280);
-    if (UIWidgets::SecondaryButton("Select All", ImVec2(120, 0)))
-    {
-        for (auto &selected : state.selectedLogs)
-            selected = true;
-    }
+    ImGui::NextColumn();
 
-    ImGui::SameLine();
-    if (UIWidgets::SecondaryButton("Deselect All", ImVec2(120, 0)))
-    {
-        for (auto &selected : state.selectedLogs)
-            selected = false;
-    }
+    ImGui::PushFont(UIFonts::Medium);
+    ImGui::TextColored(UIColors::CoolGray, "INSTALL DIRECTORY");
+    ImGui::PopFont();
+    ImGui::PushFont(UIFonts::Default);
+    ImGui::TextWrapped("%s", game.installDir.c_str());
+    ImGui::PopFont();
 
-    ImGui::BeginChild("LogFilesList", ImVec2(0, 280), true);
+    ImGui::NextColumn();
 
-    if (ImGui::BeginTable(
-            "LogFilesTable", 5,
-            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                ImGuiTableFlags_ScrollY))
-    {
-        ImGui::TableSetupColumn("Select", ImGuiTableColumnFlags_WidthFixed, 50);
-        ImGui::TableSetupColumn(
-            "File Name", ImGuiTableColumnFlags_WidthStretch);
-        ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthFixed, 100);
-        ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, 80);
-        ImGui::TableSetupColumn(
-            "Modified", ImGuiTableColumnFlags_WidthFixed, 150);
-        ImGui::TableHeadersRow();
+    ImGui::PushFont(UIFonts::Medium);
+    ImGui::TextColored(UIColors::CoolGray, "LOG FILES FOUND");
+    ImGui::PopFont();
+    ImGui::PushFont(UIFonts::Default);
+    ImGui::Text("%zu", state.logFiles.size());
+    ImGui::PopFont();
 
-        for (size_t i = 0; i < state.logFiles.size(); ++i)
-        {
-            const auto &log = state.logFiles[i];
-            ImGui::TableNextRow();
-
-            ImGui::TableSetColumnIndex(0);
-            ImGui::PushID(static_cast<int>(i));
-            bool selected = state.selectedLogs[i];
-            ImGui::Checkbox("##select", &selected);
-            state.selectedLogs[i] = selected;
-            ImGui::PopID();
-
-            ImGui::TableSetColumnIndex(1);
-            bool isClickable = ImGui::Selectable(
-                log.filename.c_str(),
-                state.previewLogIndex == static_cast<int>(i),
-                ImGuiSelectableFlags_SpanAllColumns |
-                    ImGuiSelectableFlags_AllowOverlap);
-
-            if (isClickable)
-            {
-                state.previewLogIndex = static_cast<int>(i);
-            }
-
-            ImGui::TableSetColumnIndex(2);
-            ImGui::TextColored(UIColors::LightTeal, "%s", log.type.c_str());
-
-            ImGui::TableSetColumnIndex(3);
-            ImGui::Text(
-                "%s", SteamUtils::formatFileSize(log.size).c_str());
-
-            ImGui::TableSetColumnIndex(4);
-            ImGui::PushFont(UIFonts::Small);
-            ImGui::Text("%s", log.lastModified.c_str());
-            ImGui::PopFont();
-        }
-
-        ImGui::EndTable();
-    }
+    ImGui::Columns(1);
 
     ImGui::EndChild();
 
     ImGui::Spacing();
-
-    if (state.previewLogIndex >= 0 &&
-        state.previewLogIndex < state.logFiles.size())
-    {
-        if (UIWidgets::SecondaryButton(
-                "Preview Selected File", ImVec2(220, 40)))
-        {
-            state.previewContent = ReadFileContent(
-                state.logFiles[state.previewLogIndex].path);
-            state.showPreviewWindow = true;
-        }
-        // ImGui::SameLine();
-    }
-
     ImGui::Spacing();
 
-    int selectedCount = 0;
-    for (bool selected : state.selectedLogs)
+    // Log files section
+    ImGui::SetCursorPosX(padding);
+
+    if (state.logFiles.empty())
     {
-        if (selected)
-            selectedCount++;
+        float emptyHeight = windowSize.y - ImGui::GetCursorPosY() - padding;
+        ImGui::BeginChild("NoLogs", ImVec2(contentWidth, emptyHeight), true);
+
+        float centerY = emptyHeight / 2.0f - 50.0f;
+        ImGui::SetCursorPosY(centerY);
+
+        ImGui::PushFont(UIFonts::Large);
+        const char *noLogsText = "No Log Files Found";
+        float textWidth = ImGui::CalcTextSize(noLogsText).x;
+        ImGui::SetCursorPosX((contentWidth - textWidth) / 2.0f);
+        ImGui::TextColored(UIColors::CoolGray, "%s", noLogsText);
+        ImGui::PopFont();
+
+        ImGui::Spacing();
+        ImGui::Spacing();
+
+        const char *helpText = "No log files were detected for this game.";
+        float helpWidth = ImGui::CalcTextSize(helpText).x;
+        ImGui::SetCursorPosX((contentWidth - helpWidth) / 2.0f);
+        ImGui::TextColored(UIColors::CoolGray, "%s", helpText);
+
+        ImGui::EndChild();
     }
-
-    if (selectedCount > 0)
+    else
     {
-        std::string copyButtonText =
-            "Copy Selected (" + std::to_string(selectedCount) + ")";
+        // Action buttons row
+        ImGui::BeginGroup();
 
-        if (UIWidgets::PrimaryButton(
-                copyButtonText.c_str(), ImVec2(250, 40)))
+        float buttonHeight = 40.0f;
+
+        if (UIWidgets::SecondaryButton("Select All", ImVec2(130, buttonHeight)))
         {
-            const auto &game = state.games[state.selectedGameIndex];
+            for (auto &selected : state.selectedLogs)
+                selected = true;
+        }
+
+        ImGui::SameLine();
+
+        if (UIWidgets::SecondaryButton("Deselect All",
+                                       ImVec2(150, buttonHeight)))
+        {
+            for (auto &selected : state.selectedLogs)
+                selected = false;
+        }
+
+        ImGui::SameLine();
+
+        bool canPreview =
+            state.previewLogIndex >= 0 &&
+            state.previewLogIndex < static_cast<int>(state.logFiles.size());
+
+        if (!canPreview)
+            ImGui::BeginDisabled();
+
+        if (UIWidgets::SecondaryButton("Preview Selected",
+                                       ImVec2(200, buttonHeight)))
+        {
+            state.previewContent =
+                ReadFileContent(state.logFiles[state.previewLogIndex].path);
+            state.showPreviewWindow = true;
+        }
+
+        if (!canPreview)
+            ImGui::EndDisabled();
+
+        // Copy button on the right
+        int selectedCount = 0;
+        for (bool selected : state.selectedLogs)
+        {
+            if (selected)
+                selectedCount++;
+        }
+
+        float copyButtonWidth = 220.0f;
+        ImGui::SameLine(contentWidth - copyButtonWidth);
+
+        if (selectedCount == 0)
+            ImGui::BeginDisabled();
+
+        std::string copyText =
+            "Copy Selected (" + std::to_string(selectedCount) + ")";
+        if (UIWidgets::PrimaryButton(copyText.c_str(),
+                                     ImVec2(copyButtonWidth, buttonHeight)))
+        {
+            state.errorMessage.clear();
             std::string outputDir =
                 SteamUtils::createOutputDirectory(game.name);
 
@@ -492,21 +759,116 @@ void RenderLogFilesSection(AppState &state)
 
                 int copied = SteamUtils::copyLogsToDirectory(
                     selectedLogFiles, outputDir, game.name);
-                state.statusMessage = "Copied " + std::to_string(copied) +
-                                      " file(s) to " + outputDir;
+                state.statusMessage = "Successfully copied " +
+                                      std::to_string(copied) + " file(s) to: " +
+                                      outputDir;
             }
             else
             {
-                state.statusMessage = "Failed to create output directory";
+                state.errorMessage = "Failed to create output directory";
             }
         }
-    }
-    else
-    {
-        ImGui::BeginDisabled();
-        ImGui::Button(
-            "Copy Selected (0)", ImVec2(250, 40));
-        ImGui::EndDisabled();
+
+        if (selectedCount == 0)
+            ImGui::EndDisabled();
+
+        ImGui::EndGroup();
+
+        ImGui::Spacing();
+
+        // Status/error messages
+        if (!state.statusMessage.empty())
+        {
+            ImGui::PushStyleColor(
+                ImGuiCol_ChildBg,
+                ImVec4(UIColors::Success.x, UIColors::Success.y,
+                       UIColors::Success.z, 0.15f));
+            ImGui::BeginChild("StatusBox", ImVec2(contentWidth, 45), true);
+            ImGui::SetCursorPos(ImVec2(15, 12));
+            ImGui::TextColored(UIColors::Success, "%s",
+                               state.statusMessage.c_str());
+            ImGui::EndChild();
+            ImGui::PopStyleColor();
+            ImGui::Spacing();
+        }
+
+        if (!state.errorMessage.empty())
+        {
+            ImGui::PushStyleColor(ImGuiCol_ChildBg,
+                                  ImVec4(UIColors::Error.x, UIColors::Error.y,
+                                         UIColors::Error.z, 0.15f));
+            ImGui::BeginChild("ErrorBox", ImVec2(contentWidth, 45), true);
+            ImGui::SetCursorPos(ImVec2(15, 12));
+            ImGui::TextColored(UIColors::Error, "%s",
+                               state.errorMessage.c_str());
+            ImGui::EndChild();
+            ImGui::PopStyleColor();
+            ImGui::Spacing();
+        }
+
+        // Log files table
+        float tableHeight = windowSize.y - ImGui::GetCursorPosY() - padding;
+        ImGui::BeginChild("LogFilesTable", ImVec2(contentWidth, tableHeight),
+                          true);
+
+        if (ImGui::BeginTable("LogsTable", 5,
+                              ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                  ImGuiTableFlags_ScrollY |
+                                  ImGuiTableFlags_Resizable |
+                                  ImGuiTableFlags_SizingStretchProp))
+        {
+            ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 40);
+            ImGui::TableSetupColumn("File Name",
+                                    ImGuiTableColumnFlags_WidthStretch, 3.0f);
+            ImGui::TableSetupColumn("Type", ImGuiTableColumnFlags_WidthStretch,
+                                    1.0f);
+            ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthStretch,
+                                    0.8f);
+            ImGui::TableSetupColumn("Modified",
+                                    ImGuiTableColumnFlags_WidthStretch, 1.2f);
+            ImGui::TableHeadersRow();
+
+            for (size_t i = 0; i < state.logFiles.size(); ++i)
+            {
+                const auto &log = state.logFiles[i];
+                ImGui::TableNextRow();
+
+                ImGui::TableSetColumnIndex(0);
+                ImGui::PushID(static_cast<int>(i));
+                bool selected = state.selectedLogs[i];
+                ImGui::Checkbox("##select", &selected);
+                state.selectedLogs[i] = selected;
+                ImGui::PopID();
+
+                ImGui::TableSetColumnIndex(1);
+                bool isSelected =
+                    state.previewLogIndex == static_cast<int>(i);
+
+                if (ImGui::Selectable(log.filename.c_str(), isSelected,
+                                      ImGuiSelectableFlags_SpanAllColumns |
+                                          ImGuiSelectableFlags_AllowOverlap))
+                {
+                    state.previewLogIndex = static_cast<int>(i);
+                }
+
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextColored(UIColors::LightTeal, "%s",
+                                   log.type.c_str());
+
+                ImGui::TableSetColumnIndex(3);
+                ImGui::Text("%s",
+                            SteamUtils::formatFileSize(log.size).c_str());
+
+                ImGui::TableSetColumnIndex(4);
+                ImGui::PushFont(UIFonts::Small);
+                ImGui::Text("%s", log.lastModified.c_str());
+                ImGui::PopFont();
+            }
+
+            ImGui::EndTable();
+        }
+
+        ImGui::EndChild();
     }
 }
 
@@ -528,6 +890,9 @@ bool SetWindowIcon(GLFWwindow *window, const char *iconPath)
 
 int main(int argc, char *argv[])
 {
+    (void)argc;
+    (void)argv;
+
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
         return 1;
@@ -535,9 +900,16 @@ int main(int argc, char *argv[])
     const char *glsl_version = "#version 330";
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+
+    // Get primary monitor for fullscreen dimensions
+    GLFWmonitor *primaryMonitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode *videoMode = glfwGetVideoMode(primaryMonitor);
 
     GLFWwindow *window = glfwCreateWindow(
-        1400, 900, "Steam Log Collector", nullptr, nullptr);
+        videoMode->width, videoMode->height, "Steam Log Collector",
+        nullptr, nullptr);
+
     if (window == nullptr)
         return 1;
 
@@ -570,22 +942,29 @@ int main(int argc, char *argv[])
 
         ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::SetNextWindowSize(io.DisplaySize);
-        ImGui::Begin(
-            "Steam Log Collector",
-            nullptr,
-            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_MenuBar |
-                ImGuiWindowFlags_NoTitleBar);
+        ImGui::Begin("Steam Log Collector", nullptr,
+                     ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                         ImGuiWindowFlags_NoCollapse |
+                         ImGuiWindowFlags_MenuBar |
+                         ImGuiWindowFlags_NoTitleBar);
 
         RenderMenuBar(state, window);
         RenderAboutPopup(state);
 
         ImGui::Spacing();
-        RenderStatusSection(state);
-        RenderSteamDirectorySection(state);
-        RenderGamesSection(state);
-        RenderSelectedGameSection(state);
-        RenderLogFilesSection(state);
+
+        switch (state.currentScreen)
+        {
+        case Screen::Welcome:
+            RenderWelcomeScreen(state);
+            break;
+        case Screen::GameSelection:
+            RenderGameSelectionScreen(state);
+            break;
+        case Screen::LogFiles:
+            RenderLogFilesScreen(state);
+            break;
+        }
 
         ImGui::End();
 
@@ -595,8 +974,8 @@ int main(int argc, char *argv[])
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
-        glClearColor(
-            UIColors::DarkBg.x, UIColors::DarkBg.y, UIColors::DarkBg.z, 1.0f);
+        glClearColor(UIColors::DarkBg.x, UIColors::DarkBg.y, UIColors::DarkBg.z,
+                     1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
