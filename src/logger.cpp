@@ -23,7 +23,7 @@ namespace Logger
         case SEVERITY_LEVEL::WARNING:
             levelStr = "WARNING";
             break;
-        case SEVERITY_LEVEL::ERRORS:
+        case SEVERITY_LEVEL::ERR:
             levelStr = "ERROR";
             break;
         case SEVERITY_LEVEL::FATAL:

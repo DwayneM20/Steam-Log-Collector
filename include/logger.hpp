@@ -7,7 +7,7 @@ enum class SEVERITY_LEVEL
 {
     INFO,
     WARNING,
-    ERRORS,
+    ERR,
     FATAL,
     DEBUG
 };

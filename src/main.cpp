@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
         if (steamDir.empty())
         {
-            Logger::log("Steam directory not found. Please ensure Steam is installed.", SEVERITY_LEVEL::ERRORS);
+            Logger::log("Steam directory not found. Please ensure Steam is installed.", SEVERITY_LEVEL::ERR);
             std::cerr << "Error: Steam directory not found. Please ensure Steam is installed." << std::endl;
             std::cout << "You can also specify the Steam directory manually:" << std::endl;
             std::cout << "Usage: " << argv[0] << " <steam_game_name> <steam_directory>" << std::endl;
