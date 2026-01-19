@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
         if (steamDir.empty())
         {
-            Logger::log("Steam directory not found. Please ensure Steam is installed.", ERROR);
+            Logger::log("Steam directory not found. Please ensure Steam is installed.", SEVERITY_LEVEL::ERRORS);
             std::cerr << "Error: Steam directory not found. Please ensure Steam is installed." << std::endl;
             std::cout << "You can also specify the Steam directory manually:" << std::endl;
             std::cout << "Usage: " << argv[0] << " <steam_game_name> <steam_directory>" << std::endl;
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    Logger::log("Found Steam directory: " + steamDir, INFO);
+    Logger::log("Found Steam directory: " + steamDir, SEVERITY_LEVEL::INFO);
 
     std::cout << "Scanning for installed games..." << std::endl;
     std::vector<SteamUtils::GameInfo> games = SteamUtils::getInstalledGames(steamDir);
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
     std::cout << "App ID: " << foundGame->appId << std::endl;
     std::cout << "Install Directory: " << foundGame->installDir << std::endl;
 
-    Logger::log("Initialized Steam Log Collector for: " + foundGame->name + " (ID: " + foundGame->appId + ")", INFO);
+    Logger::log("Initialized Steam Log Collector for: " + foundGame->name + " (ID: " + foundGame->appId + ")", SEVERITY_LEVEL::INFO);
 
     std::cout << "\nSearching for log files..." << std::endl;
     std::vector<SteamUtils::LogFile> logFiles = SteamUtils::findGameLogs(steamDir, *foundGame);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
     if (logFiles.empty())
     {
         std::cout << "No log files found for " << foundGame->name << std::endl;
-        Logger::log("No log files found for " + foundGame->name, WARNING);
+        Logger::log("No log files found for " + foundGame->name, SEVERITY_LEVEL::WARNING);
         return 0;
     }
 

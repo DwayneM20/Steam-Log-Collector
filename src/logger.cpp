@@ -17,19 +17,19 @@ namespace Logger
 
         switch (level)
         {
-        case INFO:
+        case SEVERITY_LEVEL::INFO:
             levelStr = "INFO";
             break;
-        case WARNING:
+        case SEVERITY_LEVEL::WARNING:
             levelStr = "WARNING";
             break;
-        case ERROR:
+        case SEVERITY_LEVEL::ERRORS:
             levelStr = "ERROR";
             break;
-        case FATAL:
+        case SEVERITY_LEVEL::FATAL:
             levelStr = "FATAL";
             break;
-        case DEBUG:
+        case SEVERITY_LEVEL::DEBUG:
             levelStr = "DEBUG";
             break;
         default:

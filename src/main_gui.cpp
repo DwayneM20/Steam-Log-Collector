@@ -285,7 +285,7 @@ void RenderWelcomeScreen(AppState &state)
         if (!state.steamDir.empty())
         {
             state.steamDirFound = true;
-            Logger::log("Found Steam directory: " + state.steamDir);
+            Logger::log("Found Steam directory: " + state.steamDir, SEVERITY_LEVEL::INFO);
             state.games = SteamUtils::getInstalledGames(state.steamDir);
             state.currentScreen = Screen::GameSelection;
         }
@@ -357,7 +357,7 @@ void RenderWelcomeScreen(AppState &state)
         {
             state.steamDir = manualPath;
             state.steamDirFound = true;
-            Logger::log("Using manual Steam directory: " + state.steamDir, INFO);
+            Logger::log("Using manual Steam directory: " + state.steamDir, SEVERITY_LEVEL::INFO);
             state.games = SteamUtils::getInstalledGames(state.steamDir);
             state.currentScreen = Screen::GameSelection;
         }

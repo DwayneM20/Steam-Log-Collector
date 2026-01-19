@@ -3,11 +3,11 @@
 
 #include <string>
 
-enum SEVERITY_LEVEL
+enum class SEVERITY_LEVEL
 {
     INFO,
     WARNING,
-    ERROR,
+    ERRORS,
     FATAL,
     DEBUG
 };
