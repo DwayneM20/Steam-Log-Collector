@@ -357,7 +357,7 @@ void RenderWelcomeScreen(AppState &state)
         {
             state.steamDir = manualPath;
             state.steamDirFound = true;
-            Logger::log("Using manual Steam directory: " + state.steamDir);
+            Logger::log("Using manual Steam directory: " + state.steamDir, INFO);
             state.games = SteamUtils::getInstalledGames(state.steamDir);
             state.currentScreen = Screen::GameSelection;
         }

@@ -170,31 +170,31 @@ namespace SteamUtils
 
     std::string findSteamDirectory()
     {
-        Logger::log("Searching for Steam installation directory...");
+        Logger::log("Searching for Steam installation directory...", INFO);
 
         std::string os = getOperatingSystem();
-        Logger::log("Detected operating system: " + os);
+        Logger::log("Detected operating system: " + os, INFO);
 
         std::vector<std::string> potentialPaths = getSteamDirectoryPaths();
 
         for (const auto &path : potentialPaths)
         {
-            Logger::log("Checking path: " + path);
+            Logger::log("Checking path: " + path, INFO);
 
             if (directoryExists(path))
             {
                 if (isValidSteamDirectory(path))
                 {
-                    Logger::log("Found valid Steam directory: " + path);
+                    Logger::log("Found valid Steam directory: " + path, INFO);
                     return path;
                 }
                 else
                 {
-                    Logger::log("Invalid Steam directory: " + path);
+                    Logger::log("Invalid Steam directory: " + path, SEVERITY_LEVEL::WARNING);
                 }
             }
         }
-        Logger::log("Steam directory not found in any of the common locations.");
+        Logger::log("Steam directory not found in any of the common locations.", SEVERITY_LEVEL::WARNING);
         return "";
     }
 
@@ -205,7 +205,7 @@ namespace SteamUtils
 
         if (!file.is_open())
         {
-            Logger::log("Failed to open ACF file: " + acfFilePath);
+            Logger::log("Failed to open ACF file: " + acfFilePath, SEVERITY_LEVEL::FATAL);
             return game;
         }
 
@@ -263,11 +263,11 @@ namespace SteamUtils
             steamappsPath += "/steamapps";
         }
 
-        Logger::log("Scanning for games in: " + steamappsPath);
+        Logger::log("Scanning for games in: " + steamappsPath, SEVERITY_LEVEL::INFO);
 
         if (!directoryExists(steamappsPath))
         {
-            Logger::log("Steamapps directory not found: " + steamappsPath);
+            Logger::log("Steamapps directory not found: " + steamappsPath, SEVERITY_LEVEL::WARNING);
             return games;
         }
 
@@ -285,7 +285,7 @@ namespace SteamUtils
                         if (!game.name.empty() && !game.appId.empty())
                         {
                             games.push_back(game);
-                            Logger::log("Found game: " + game.name + " (ID: " + game.appId + ")");
+                            Logger::log("Found game: " + game.name + " (ID: " + game.appId + ")", SEVERITY_LEVEL::INFO);
                         }
                     }
                 }
@@ -293,10 +293,10 @@ namespace SteamUtils
         }
         catch (const std::filesystem::filesystem_error &e)
         {
-            Logger::log("Error scanning steamapps directory: " + std::string(e.what()));
+            Logger::log("Error scanning steamapps directory: " + std::string(e.what()), SEVERITY_LEVEL::WARNING);
         }
 
-        Logger::log("Found " + std::to_string(games.size()) + " installed games");
+        Logger::log("Found " + std::to_string(games.size()) + " installed games", SEVERITY_LEVEL::INFO);
         return games;
     }
 
@@ -443,7 +443,7 @@ namespace SteamUtils
                             }
 
                             logFiles.push_back(logFile);
-                            Logger::log("Found log file: " + logFile.path + " (" + formatFileSize(logFile.size) + ")");
+                            Logger::log("Found log file: " + logFile.path + " (" + formatFileSize(logFile.size) + ")", DEBUG);
                         }
                     }
                     else if (entry.is_directory() && currentDepth < maxDepth - 1)
@@ -459,7 +459,7 @@ namespace SteamUtils
         }
         catch (const std::filesystem::filesystem_error &e)
         {
-            Logger::log("Error scanning directory " + directory + ": " + e.what());
+            Logger::log("Error scanning directory " + directory + ": " + e.what(), SEVERITY_LEVEL::WARNING);
         }
     }
 
@@ -470,7 +470,7 @@ namespace SteamUtils
         std::string os = getOperatingSystem();
         std::string home = getHomeDirectory();
 
-        Logger::log("Searching for logs for game: " + game.name + " (ID: " + game.appId + ")");
+        Logger::log("Searching for logs for game: " + game.name + " (ID: " + game.appId + ")", SEVERITY_LEVEL::INFO);
 
         if (os == "Windows")
         {
@@ -525,7 +525,7 @@ namespace SteamUtils
 
         for (const auto &path : searchPaths)
         {
-            Logger::log("Searching in: " + path);
+            Logger::log("Searching in: " + path, INFO);
             searchLogsInDirectory(path, logFiles, 3, 0);
         }
 
@@ -535,7 +535,7 @@ namespace SteamUtils
                       return a.lastModified > b.lastModified;
                   });
 
-        Logger::log("Found " + std::to_string(logFiles.size()) + " log files for " + game.name);
+        Logger::log("Found " + std::to_string(logFiles.size()) + " log files for " + game.name, INFO);
         return logFiles;
     }
     bool createDirectory(const std::string &path)
@@ -545,44 +545,44 @@ namespace SteamUtils
             if (std::filesystem::exists(path))
             {
                 bool isDir = std::filesystem::is_directory(path);
-                Logger::log("Directory already exists: " + path + " (is_directory: " + (isDir ? "true" : "false") + ")");
+                Logger::log("Directory already exists: " + path + " (is_directory: " + (isDir ? "true" : "false") + ")", SEVERITY_LEVEL::INFO);
                 return isDir;
             }
 
-            Logger::log("Attempting to create directory: " + path);
+            Logger::log("Attempting to create directory: " + path, INFO);
             bool success = std::filesystem::create_directories(path);
 
             if (success)
             {
-                Logger::log("Successfully created directory: " + path);
+                Logger::log("Successfully created directory: " + path, INFO);
 
                 // Verify the directory was actually created
                 if (std::filesystem::exists(path) && std::filesystem::is_directory(path))
                 {
-                    Logger::log("Verified directory creation: " + path);
+                    Logger::log("Verified directory creation: " + path, INFO);
                     return true;
                 }
                 else
                 {
-                    Logger::log("Directory creation reported success but verification failed: " + path);
+                    Logger::log("Directory creation reported success but verification failed: " + path, WARNING);
                     return false;
                 }
             }
             else
             {
-                Logger::log("create_directories returned false for: " + path);
+                Logger::log("create_directories returned false for: " + path, SEVERITY_LEVEL::WARNING);
                 return false;
             }
         }
         catch (const std::filesystem::filesystem_error &e)
         {
-            Logger::log("Filesystem error creating directory " + path + ": " + e.what());
-            Logger::log("Error code: " + std::to_string(e.code().value()) + " - " + e.code().message());
+            Logger::log("Filesystem error creating directory " + path + ": " + e.what(), SEVERITY_LEVEL::WARNING);
+            Logger::log("Error code: " + std::to_string(e.code().value()) + " - " + e.code().message(), SEVERITY_LEVEL::WARNING);
             return false;
         }
         catch (const std::exception &e)
         {
-            Logger::log("General exception creating directory " + path + ": " + e.what());
+            Logger::log("General exception creating directory " + path + ": " + e.what(), SEVERITY_LEVEL::WARNING);
             return false;
         }
     }
@@ -613,12 +613,11 @@ namespace SteamUtils
         std::string home = getHomeDirectory();
         if (home.empty())
         {
-            Logger::log("Could not determine home directory");
+            Logger::log("Could not determine home directory", SEVERITY_LEVEL::WARNING);
             return "";
         }
 
-        Logger::log("Home directory: " + home);
-
+        Logger::log("Home directory: " + home, SEVERITY_LEVEL::INFO);
         std::string os = getOperatingSystem();
         std::string steamLogDir;
 
@@ -631,53 +630,52 @@ namespace SteamUtils
             steamLogDir = home + "/steam-logs";
         }
 
-        Logger::log("Attempting to create steam-logs directory: " + steamLogDir);
+        Logger::log("Attempting to create steam-logs directory: " + steamLogDir, SEVERITY_LEVEL::INFO);
 
         if (!createDirectory(steamLogDir))
         {
-            Logger::log("Standard method failed, trying alternative approach...");
-
+            Logger::log("Standard method failed, trying alternative approach...", SEVERITY_LEVEL::WARNING);
             if (os == "Windows")
             {
 #ifdef _WIN32
                 if (CreateDirectoryA(steamLogDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
                 {
-                    Logger::log("Windows API successfully created/found directory: " + steamLogDir);
+                    Logger::log("Windows API successfully created/found directory: " + steamLogDir, SEVERITY_LEVEL::INFO);
                 }
                 else
                 {
                     DWORD error = GetLastError();
-                    Logger::log("Windows API failed with error: " + std::to_string(error));
+                    Logger::log("Windows API failed with error: " + std::to_string(error), SEVERITY_LEVEL::WARNING);
 
                     std::string documentsDir = home + "\\Documents\\steam-logs";
-                    Logger::log("Trying fallback location: " + documentsDir);
+                    Logger::log("Trying fallback location: " + documentsDir, INFO);
 
                     if (CreateDirectoryA(documentsDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
                     {
                         steamLogDir = documentsDir;
-                        Logger::log("Successfully created fallback directory: " + steamLogDir);
+                        Logger::log("Successfully created fallback directory: " + steamLogDir, INFO);
                     }
                     else
                     {
-                        Logger::log("All directory creation attempts failed");
+                        Logger::log("All directory creation attempts failed", WARNING);
                         return "";
                     }
                 }
 #else
-                Logger::log("Windows API not available");
+                Logger::log("Windows API not available", ERROR);
                 return "";
 #endif
             }
             else
             {
-                Logger::log("Failed to create steam-logs directory and no fallback available for this OS");
+                Logger::log("Failed to create steam-logs directory and no fallback available for this OS", WARNING);
                 return "";
             }
         }
 
         if (!directoryExists(steamLogDir))
         {
-            Logger::log("Directory verification failed: " + steamLogDir);
+            Logger::log("Directory verification failed: " + steamLogDir, WARNING);
             return "";
         }
 
@@ -698,21 +696,21 @@ namespace SteamUtils
             gameDir = steamLogDir + "/" + sanitizedGameName + "_" + timestamp.str();
         }
 
-        Logger::log("Creating game-specific directory: " + gameDir);
+        Logger::log("Creating game-specific directory: " + gameDir, INFO);
 
         if (!createDirectory(gameDir))
         {
-            Logger::log("Failed to create game directory: " + gameDir);
+            Logger::log("Failed to create game directory: " + gameDir, SEVERITY_LEVEL::WARNING);
             return "";
         }
 
         if (!directoryExists(gameDir))
         {
-            Logger::log("Game directory verification failed: " + gameDir);
+            Logger::log("Game directory verification failed: " + gameDir, WARNING);
             return "";
         }
 
-        Logger::log("Successfully created output directory: " + gameDir);
+        Logger::log("Successfully created output directory: " + gameDir, INFO);
         return gameDir;
     }
 
@@ -726,7 +724,7 @@ namespace SteamUtils
         }
         catch (const std::filesystem::filesystem_error &e)
         {
-            Logger::log("Error copying file from " + sourcePath + " to " + destPath + ": " + e.what());
+            Logger::log("Error copying file from " + sourcePath + " to " + destPath + ": " + e.what(), WARNING);
             return false;
         }
     }
@@ -735,11 +733,11 @@ namespace SteamUtils
     {
         if (logFiles.empty())
         {
-            Logger::log("No log files to copy for game: " + gameName);
+            Logger::log("No log files to copy for game: " + gameName, INFO);
             return 0;
         }
 
-        Logger::log("Starting to copy " + std::to_string(logFiles.size()) + " log files to: " + outputDir);
+        Logger::log("Starting to copy " + std::to_string(logFiles.size()) + " log files to: " + outputDir, INFO);
 
         int copiedCount = 0;
         std::string os = getOperatingSystem();
@@ -788,7 +786,7 @@ namespace SteamUtils
             if (copyFile(logFile.path, destPath))
             {
                 copiedCount++;
-                Logger::log("Copied: " + logFile.filename + "-->" + destFileName);
+                Logger::log("Copied: " + logFile.filename + "-->" + destFileName, INFO);
                 if (summaryFile.is_open())
                 {
                     summaryFile << "[" << (i + 1) << "] " << destFileName << "\n";
@@ -800,7 +798,7 @@ namespace SteamUtils
             }
             else
             {
-                Logger::log("Failed to copy: " + logFile.path);
+                Logger::log("Failed to copy: " + logFile.path, WARNING);
             }
         }
 
@@ -808,9 +806,9 @@ namespace SteamUtils
         {
             summaryFile << "Successfully copied " << copiedCount << "/" << logFiles.size() << " files\n";
             summaryFile.close();
-            Logger::log("Log summary file created: " + summaryPath);
+            Logger::log("Log summary file created: " + summaryPath, INFO);
         }
-        Logger::log("Copy operation completed. " + std::to_string(copiedCount) + " files copied successfully.");
+        Logger::log("Copy operation completed. " + std::to_string(copiedCount) + " files copied successfully.", INFO);
         return copiedCount;
     }
 }
