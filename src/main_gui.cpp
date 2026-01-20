@@ -14,6 +14,7 @@
 #include "theme.hpp"
 #include "fonts.hpp"
 #include "ui_widgets.hpp"
+#include "toast.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -278,22 +279,20 @@ void RenderWelcomeScreen(AppState &state)
     if (UIWidgets::PrimaryButton("Auto-Detect Steam Directory",
                                  ImVec2(buttonWidth, buttonHeight)))
     {
-        state.errorMessage.clear();
         state.statusMessage = "Searching for Steam...";
         state.steamDir = SteamUtils::findSteamDirectory();
 
         if (!state.steamDir.empty())
         {
             state.steamDirFound = true;
+            UIToast::Success("Steam directory auto-detected successfully.");
             Logger::log("Found Steam directory: " + state.steamDir, SEVERITY_LEVEL::INFO);
             state.games = SteamUtils::getInstalledGames(state.steamDir);
             state.currentScreen = Screen::GameSelection;
         }
         else
         {
-            state.errorMessage =
-                "Could not auto-detect Steam directory. "
-                "Please enter the path manually.";
+            UIToast::Error("Could not auto-detect Steam directory. Please enter it manually.");
         }
     }
 
@@ -337,26 +336,25 @@ void RenderWelcomeScreen(AppState &state)
     if (UIWidgets::SecondaryButton("Use Manual Path",
                                    ImVec2(buttonWidth, buttonHeight * 0.85f)))
     {
-        state.errorMessage.clear();
         std::string manualPath = state.manualSteamDir;
 
         if (manualPath.empty())
         {
-            state.errorMessage = "Please enter a directory path.";
+            UIToast::Error("Please enter a Steam directory path.");
         }
         else if (!SteamUtils::directoryExists(manualPath))
         {
-            state.errorMessage = "Directory does not exist: " + manualPath;
+            UIToast::Error("The specified directory does not exist: " + manualPath);
         }
         else if (!SteamUtils::isValidSteamDirectory(manualPath))
         {
-            state.errorMessage =
-                "This does not appear to be a valid Steam directory.";
+            UIToast::Error("This does not appear to be a valid Steam directory.");
         }
         else
         {
             state.steamDir = manualPath;
             state.steamDirFound = true;
+            UIToast::Success("Manual Steam directory set successfully.");
             Logger::log("Using manual Steam directory: " + state.steamDir, SEVERITY_LEVEL::INFO);
             state.games = SteamUtils::getInstalledGames(state.steamDir);
             state.currentScreen = Screen::GameSelection;
@@ -365,21 +363,6 @@ void RenderWelcomeScreen(AppState &state)
 
     ImGui::EndGroup();
     ImGui::EndChild();
-
-    // Error message
-    if (!state.errorMessage.empty())
-    {
-        ImGui::Spacing();
-        ImGui::SetCursorPosX(startX);
-        ImGui::PushStyleColor(ImGuiCol_ChildBg,
-                              ImVec4(UIColors::Error.x, UIColors::Error.y,
-                                     UIColors::Error.z, 0.2f));
-        ImGui::BeginChild("ErrorBox", ImVec2(contentWidth, 60), true);
-        ImGui::SetCursorPos(ImVec2(15, 15));
-        ImGui::TextColored(UIColors::Error, "%s", state.errorMessage.c_str());
-        ImGui::EndChild();
-        ImGui::PopStyleColor();
-    }
 }
 
 void RenderGameSelectionScreen(AppState &state)
@@ -742,7 +725,6 @@ void RenderLogFilesScreen(AppState &state)
         if (UIWidgets::PrimaryButton(copyText.c_str(),
                                      ImVec2(copyButtonWidth, buttonHeight)))
         {
-            state.errorMessage.clear();
             std::string outputDir =
                 SteamUtils::createOutputDirectory(game.name);
 
@@ -759,13 +741,13 @@ void RenderLogFilesScreen(AppState &state)
 
                 int copied = SteamUtils::copyLogsToDirectory(
                     selectedLogFiles, outputDir, game.name);
-                state.statusMessage = "Successfully copied " +
-                                      std::to_string(copied) + " file(s) to: " +
-                                      outputDir;
+                UIToast::Success(
+                    "Copied " + std::to_string(copied) +
+                    " log files to: " + outputDir);
             }
             else
             {
-                state.errorMessage = "Failed to create output directory";
+                UIToast::Error("Failed to create output directory.");
             }
         }
 
@@ -975,6 +957,7 @@ int main(int argc, char *argv[])
         ImGui::End();
 
         RenderPreviewWindow(state);
+        UIToast::Render();
 
         ImGui::Render();
         int display_w, display_h;
