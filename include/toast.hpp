@@ -25,17 +25,21 @@ namespace UIToast
         std::chrono::steady_clock::time_point createdAt;
         float duration;
         float opacity = 1.0f;
+        int id;
     };
 
     inline std::vector<Toast> toasts;
+    inline int nextToastId = 0;
 
-    inline void Show(const std::string &message, Type type = Type::INFO, float duration = 3.0f)
+    inline void Show(const std::string &message, Type type = Type::INFO,
+                     float duration = 3.0f)
     {
         Toast toast;
         toast.message = message;
         toast.type = type;
         toast.createdAt = std::chrono::steady_clock::now();
         toast.duration = duration;
+        toast.id = nextToastId++;
         toasts.push_back(toast);
     }
 
@@ -70,7 +74,6 @@ namespace UIToast
         case Type::ERROR:
             return UIColors::Error;
         case Type::INFO:
-            return UIColors::Info;
         default:
             return UIColors::Info;
         }
@@ -87,9 +90,8 @@ namespace UIToast
         case Type::ERROR:
             return u8"\u2716"; // Cross mark
         case Type::INFO:
-            return u8"\u2139"; // Information sign
         default:
-            return u8"\u2139";
+            return u8"\u2139"; // Information sign
         }
     }
 
@@ -103,7 +105,6 @@ namespace UIToast
 
         float padding = 20.0f;
         float toastWidth = 350.0f;
-        float toastHeight = 60.0f;
         float spacing = 10.0f;
         float fadeOutDuration = 0.5f;
 
@@ -111,16 +112,19 @@ namespace UIToast
         float startY = padding;
 
         toasts.erase(
-            std::remove_if(toasts.begin(), toasts.end(), [&now](const Toast &t)
+            std::remove_if(toasts.begin(), toasts.end(),
+                           [&now](const Toast &t)
                            {
-                float elapsed = std::chrono::duration<float>(now - t.createdAt).count();
-                return elapsed > t.duration + 0.5f; }),
+                               float elapsed =
+                                   std::chrono::duration<float>(now - t.createdAt)
+                                       .count();
+                               return elapsed > t.duration + 0.5f;
+                           }),
             toasts.end());
 
         int visibleIndex = 0;
-        for (size_t i = 0; i < toasts.size(); ++i)
+        for (auto &toast : toasts)
         {
-            Toast &toast = toasts[i];
             float elapsed =
                 std::chrono::duration<float>(now - toast.createdAt).count();
 
@@ -131,19 +135,20 @@ namespace UIToast
             else if (elapsed > toast.duration - fadeOutDuration)
             {
                 toast.opacity =
-                    1.0f - (elapsed - (toast.duration - fadeOutDuration)) /
-                               fadeOutDuration;
+                    1.0f -
+                    (elapsed - (toast.duration - fadeOutDuration)) / fadeOutDuration;
+                toast.opacity = std::max(0.0f, toast.opacity);
             }
             else
             {
                 toast.opacity = 1.0f;
             }
 
-            if (toast.opacity <= 0.0f)
+            if (toast.opacity <= 0.01f)
                 continue;
 
             ImVec4 color = GetColor(toast.type);
-            float yPos = startY + visibleIndex * (toastHeight + spacing);
+            float yPos = startY + visibleIndex * (60.0f + spacing);
 
             ImGui::SetNextWindowPos(ImVec2(startX, yPos));
             ImGui::SetNextWindowSize(ImVec2(toastWidth, 0));
@@ -157,7 +162,7 @@ namespace UIToast
                        UIColors::DeepNavy.z, 0.95f));
             ImGui::PushStyleColor(ImGuiCol_Border, color);
 
-            std::string windowName = "##Toast" + std::to_string(i);
+            std::string windowName = "##Toast" + std::to_string(toast.id);
             ImGui::Begin(windowName.c_str(), nullptr,
                          ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                              ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
@@ -166,16 +171,13 @@ namespace UIToast
                              ImGuiWindowFlags_NoFocusOnAppearing |
                              ImGuiWindowFlags_NoNav);
 
-            // Icon
             ImGui::TextColored(color, "%s", GetIcon(toast.type));
             ImGui::SameLine();
 
-            // Message with word wrap
             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + toastWidth - 60);
             ImGui::TextColored(UIColors::OffWhite, "%s", toast.message.c_str());
             ImGui::PopTextWrapPos();
 
-            // Close button
             ImGui::SameLine(toastWidth - 40);
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
