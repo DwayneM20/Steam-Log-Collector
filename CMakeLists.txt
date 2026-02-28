@@ -55,7 +55,7 @@ if(BUILD_GUI)
     ${IMGUI_SOURCES}
     )
 
-    file(COPY ${CMAKE_SOURCE_DIR}/resources 
+    file(COPY ${CMAKE_SOURCE_DIR}/resources
         DESTINATION ${CMAKE_BINARY_DIR})
 
     target_link_libraries(steam-log-collector-gui
