@@ -1,18 +1,26 @@
 #include "logger.hpp"
 #include <iostream>
 #include <ctime>
+#include <string>
 
 namespace Logger
 {
-    void log(const std::string &message)
+    static std::string getTimestamp()
     {
         std::time_t now = std::time(nullptr);
-        std::cout << "[" << std::asctime(std::localtime(&now)) << "] " << message << std::endl;
+        std::string time = std::asctime(std::localtime(&now));
+        if (!time.empty() && time.back() == '\n')
+            time.pop_back();
+        return time;
+    }
+
+    void log(const std::string &message)
+    {
+        std::cout << "[" << getTimestamp() << "] " << message << std::endl;
     }
 
     void log(const std::string &message, SEVERITY_LEVEL level)
     {
-        std::time_t now = std::time(nullptr);
         std::string levelStr;
 
         switch (level)
@@ -37,6 +45,6 @@ namespace Logger
             break;
         }
 
-        std::cout << "[" << std::asctime(std::localtime(&now)) << "] [" << levelStr << "] " << message << std::endl;
+        std::cout << "[" << getTimestamp() << "] [" << levelStr << "] " << message << std::endl;
     }
 }

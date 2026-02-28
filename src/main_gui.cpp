@@ -68,14 +68,14 @@ std::string ReadFileContent(const std::string &filePath,
     char buffer[4096];
     size_t bytesRead = 0;
 
-    while (file.read(buffer, sizeof(buffer)) && bytesRead < maxBytes)
+    while (bytesRead < maxBytes && file.read(buffer, sizeof(buffer)))
     {
         size_t count = file.gcount();
         content.write(buffer, count);
         bytesRead += count;
     }
 
-    if (file.gcount() > 0 && bytesRead < maxBytes)
+    if (bytesRead < maxBytes && file.gcount() > 0)
     {
         content.write(buffer, file.gcount());
         bytesRead += file.gcount();

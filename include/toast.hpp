@@ -191,6 +191,8 @@ namespace UIToast
             ImGui::End();
             ImGui::PopStyleColor(2);
             ImGui::PopStyleVar(3);
+
+            visibleIndex++;
         }
     }
 }

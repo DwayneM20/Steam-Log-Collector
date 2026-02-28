@@ -18,10 +18,9 @@ int main(int argc, char *argv[])
     std::string steamDir;
     bool listMode = (std::string(argv[1]) == "--list");
 
-    int steamDirArgIndex = listMode ? 2 : 2;
-    if (argc > steamDirArgIndex)
+    if (argc > 2)
     {
-        steamDir = argv[steamDirArgIndex];
+        steamDir = argv[2];
         std::cout << "Using provided Steam directory: " << steamDir << std::endl;
 
         if (!SteamUtils::directoryExists(steamDir))
@@ -74,16 +73,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    std::string gameName;
-    if (!listMode)
-    {
-        gameName = argv[1];
-    }
-    else
-    {
-        std::cout << "\nEnter the name of the game you want to collect logs for: ";
-        std::getline(std::cin, gameName);
-    }
+    std::string gameName = argv[1];
 
     const SteamUtils::GameInfo *foundGame = SteamUtils::findGameByName(games, gameName);
 
