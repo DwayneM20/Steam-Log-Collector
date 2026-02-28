@@ -1,42 +1,45 @@
 #ifndef STEAM_UTILS_HPP
 #define STEAM_UTILS_HPP
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
 namespace SteamUtils
 {
+    namespace fs = std::filesystem;
+
     /**
      * @brief Finds the Steam installation directory on the current system
-     * @return Path to Steam directory if found, empty string otherwise
+     * @return Path to Steam directory if found, empty path otherwise
      */
-    std::string findSteamDirectory();
+    fs::path findSteamDirectory();
 
     /**
      * @brief Gets all possible Steam directories locations for the current OS
      * @return Vector of paths where Steam might be installed
      */
-    std::vector<std::string> getSteamDirectoryPaths();
+    std::vector<fs::path> getSteamDirectoryPaths();
 
     /**
      * @brief Checks if a directory exists and is accessible
      * @param path The directory path to check
      * @return True if the directory exists and is accessible, false otherwise
      */
-    bool directoryExists(const std::string &path);
+    bool directoryExists(const fs::path &path);
 
     /**
      * @brief Validates if a given directory is a valid steam directory
      * @param path The directory path to validate
      * @return True if the directory is a valid Steam directory, false otherwise
      */
-    bool isValidSteamDirectory(const std::string &path);
+    bool isValidSteamDirectory(const fs::path &path);
 
     /**
      * @brief Gets the user's home directory path
      * @return Path to the user's home directory
      */
-    std::string getHomeDirectory();
+    fs::path getHomeDirectory();
 
     /**
      * @brief Detects the operating system type
@@ -60,14 +63,14 @@ namespace SteamUtils
      * @param steamDir Path to the Steam installation directory
      * @return Vector of GameInfo structures containing game details
      */
-    std::vector<GameInfo> getInstalledGames(const std::string &steamDir);
+    std::vector<GameInfo> getInstalledGames(const fs::path &steamDir);
 
     /**
      * @brief Parses an ACF file to extract game information
      * @param acfFilePath Path to the .acf file
      * @return GameInfo structure with game details, empty if parsing fails
      */
-    GameInfo parseAcfFile(const std::string &acfFilePath);
+    GameInfo parseAcfFile(const fs::path &acfFilePath);
 
     /**
      * @brief Finds a game by name (case-insensitive search)
@@ -79,7 +82,7 @@ namespace SteamUtils
 
     struct LogFile
     {
-        std::string path;
+        fs::path path;
         std::string filename;
         std::uintmax_t size;
         std::string lastModified;
@@ -92,7 +95,7 @@ namespace SteamUtils
      * @param game GameInfo structure for the target game
      * @return Vector of LogFile structures containing log file details
      */
-    std::vector<LogFile> findGameLogs(const std::string &steamDir, const GameInfo &game);
+    std::vector<LogFile> findGameLogs(const fs::path &steamDir, const GameInfo &game);
 
     /**
      * @brief Gets common log file extensions
@@ -114,7 +117,7 @@ namespace SteamUtils
      * @param maxDepth Maximum recursion depth (default: 3)
      * @param currentDepth Current recursion depth (internal use)
      */
-    void searchLogsInDirectory(const std::string &directory, std::vector<LogFile> &logFiles,
+    void searchLogsInDirectory(const fs::path &directory, std::vector<LogFile> &logFiles,
                                int maxDepth = 3, int currentDepth = 0);
 
     /**
@@ -129,14 +132,14 @@ namespace SteamUtils
      * @param filePath Path to the file
      * @return Formatted date/time string
      */
-    std::string formatFileTime(const std::string &filePath);
+    std::string formatFileTime(const fs::path &filePath);
 
     /**
      * @brief Creates the output directory for copied logs
      * @param gameName Name of the game
-     * @return Path to the created output directory, empty string if creation failed
+     * @return Path to the created output directory, empty path if creation failed
      */
-    std::string createOutputDirectory(const std::string &gameName);
+    fs::path createOutputDirectory(const std::string &gameName);
 
     /**
      * @brief Copies log files to the output directory
@@ -145,7 +148,7 @@ namespace SteamUtils
      * @param gameName Name of the game
      * @return Number of files successfully copied
      */
-    int copyLogsToDirectory(const std::vector<LogFile> &logFiles, const std::string &outputDir, const std::string &gameName);
+    int copyLogsToDirectory(const std::vector<LogFile> &logFiles, const fs::path &outputDir, const std::string &gameName);
 
     /**
      * @brief Safely copies a single file
@@ -153,14 +156,14 @@ namespace SteamUtils
      * @param destPath destination file path
      * @return True if copy was successful, false otherwise
      */
-    bool copyFile(const std::string &sourcePath, const std::string &destPath);
+    bool copyFile(const fs::path &sourcePath, const fs::path &destPath);
 
     /**
      * @brief Creates a directory recursively if it does not exist
      * @param path Directory path to create
      * @return True if the directory was created or already exists, false otherwise
      */
-    bool createDirectory(const std::string &path);
+    bool createDirectory(const fs::path &path);
 
     /**
      * @brief Sanitizes a file name for safe file system usage

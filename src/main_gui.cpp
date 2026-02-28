@@ -35,7 +35,7 @@ struct AppState
 {
     Screen currentScreen = Screen::Welcome;
 
-    std::string steamDir;
+    std::filesystem::path steamDir;
     char manualSteamDir[512] = "";
     std::vector<SteamUtils::GameInfo> games;
     std::vector<SteamUtils::LogFile> logFiles;
@@ -55,7 +55,7 @@ struct AppState
     bool showPreviewWindow = false;
 };
 
-std::string ReadFileContent(const std::string &filePath,
+std::string ReadFileContent(const std::filesystem::path &filePath,
                             size_t maxBytes = 1024 * 1024)
 {
     std::ifstream file(filePath, std::ios::binary);
@@ -180,7 +180,7 @@ void RenderPreviewWindow(AppState &state)
             ImGui::Separator();
             ImGui::Spacing();
 
-            UIWidgets::InfoText("Path:", log.path);
+            UIWidgets::InfoText("Path:", log.path.string());
             UIWidgets::InfoText("Size:",
                                 SteamUtils::formatFileSize(log.size));
             UIWidgets::InfoText("Type:", log.type);
@@ -286,7 +286,7 @@ void RenderWelcomeScreen(AppState &state)
         {
             state.steamDirFound = true;
             UIToast::Success("Steam directory auto-detected successfully.");
-            Logger::log("Found Steam directory: " + state.steamDir, SEVERITY_LEVEL::INFO);
+            Logger::log("Found Steam directory: " + state.steamDir.string(), SEVERITY_LEVEL::INFO);
             state.games = SteamUtils::getInstalledGames(state.steamDir);
             state.currentScreen = Screen::GameSelection;
         }
@@ -355,7 +355,7 @@ void RenderWelcomeScreen(AppState &state)
             state.steamDir = manualPath;
             state.steamDirFound = true;
             UIToast::Success("Manual Steam directory set successfully.");
-            Logger::log("Using manual Steam directory: " + state.steamDir, SEVERITY_LEVEL::INFO);
+            Logger::log("Using manual Steam directory: " + state.steamDir.string(), SEVERITY_LEVEL::INFO);
             state.games = SteamUtils::getInstalledGames(state.steamDir);
             state.currentScreen = Screen::GameSelection;
         }
@@ -407,7 +407,7 @@ void RenderGameSelectionScreen(AppState &state)
     ImGui::PushFont(UIFonts::Default);
     ImGui::TextColored(UIColors::CoolGray, "Steam Directory:");
     ImGui::SameLine();
-    ImGui::TextColored(UIColors::OffWhite, "%s", state.steamDir.c_str());
+    ImGui::TextColored(UIColors::OffWhite, "%s", state.steamDir.string().c_str());
 
     ImGui::TextColored(UIColors::CoolGray, "Games Found:");
     ImGui::SameLine();
@@ -725,7 +725,7 @@ void RenderLogFilesScreen(AppState &state)
         if (UIWidgets::PrimaryButton(copyText.c_str(),
                                      ImVec2(copyButtonWidth, buttonHeight)))
         {
-            std::string outputDir =
+            std::filesystem::path outputDir =
                 SteamUtils::createOutputDirectory(game.name);
 
             if (!outputDir.empty())
@@ -743,7 +743,7 @@ void RenderLogFilesScreen(AppState &state)
                     selectedLogFiles, outputDir, game.name);
                 UIToast::Success(
                     "Copied " + std::to_string(copied) +
-                    " log files to: " + outputDir);
+                    " log files to: " + outputDir.string());
             }
             else
             {

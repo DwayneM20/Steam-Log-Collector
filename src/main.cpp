@@ -1,8 +1,11 @@
 #include <iostream>
+#include <filesystem>
 #include <string>
 #include <iomanip>
 #include "logger.hpp"
 #include "steam-utils.hpp"
+
+namespace fs = std::filesystem;
 
 int main(int argc, char *argv[])
 {
@@ -15,23 +18,23 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    std::string steamDir;
+    fs::path steamDir;
     bool listMode = (std::string(argv[1]) == "--list");
 
     if (argc > 2)
     {
         steamDir = argv[2];
-        std::cout << "Using provided Steam directory: " << steamDir << std::endl;
+        std::cout << "Using provided Steam directory: " << steamDir.string() << std::endl;
 
         if (!SteamUtils::directoryExists(steamDir))
         {
-            std::cerr << "Error: Provided Steam directory does not exist: " << steamDir << std::endl;
+            std::cerr << "Error: Provided Steam directory does not exist: " << steamDir.string() << std::endl;
             return 1;
         }
 
         if (!SteamUtils::isValidSteamDirectory(steamDir))
         {
-            std::cerr << "Error: Provided directory is not a valid Steam installation: " << steamDir << std::endl;
+            std::cerr << "Error: Provided directory is not a valid Steam installation: " << steamDir.string() << std::endl;
             return 1;
         }
     }
@@ -50,7 +53,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    Logger::log("Found Steam directory: " + steamDir, SEVERITY_LEVEL::INFO);
+    Logger::log("Found Steam directory: " + steamDir.string(), SEVERITY_LEVEL::INFO);
 
     std::cout << "Scanning for installed games..." << std::endl;
     std::vector<SteamUtils::GameInfo> games = SteamUtils::getInstalledGames(steamDir);
@@ -122,7 +125,7 @@ int main(int argc, char *argv[])
     std::cout << "\n=== Full Paths ===" << std::endl;
     for (size_t i = 0; i < logFiles.size(); ++i)
     {
-        std::cout << "[" << (i + 1) << "] " << logFiles[i].path << std::endl;
+        std::cout << "[" << (i + 1) << "] " << logFiles[i].path.string() << std::endl;
     }
 
     std::cout << "\nDo you want to copy these log files to ~/steam-logs? (y/n): ";
@@ -132,7 +135,7 @@ int main(int argc, char *argv[])
     if (response == "y" || response == "Y" || response == "yes" || response == "Yes")
     {
         std::cout << "\nCreating output directory..." << std::endl;
-        std::string outputDir = SteamUtils::createOutputDirectory(foundGame->name);
+        fs::path outputDir = SteamUtils::createOutputDirectory(foundGame->name);
 
         if (outputDir.empty())
         {
@@ -147,7 +150,7 @@ int main(int argc, char *argv[])
         {
             std::cout << "\n=== Copy Complete ===" << std::endl;
             std::cout << "Successfully copied " << copiedFiles << " out of " << logFiles.size() << " log files" << std::endl;
-            std::cout << "Output Directory: " << outputDir << std::endl;
+            std::cout << "Output Directory: " << outputDir.string() << std::endl;
             std::cout << "A summary file (log_summary.txt) has been created with details of all copied files." << std::endl;
         }
         else
