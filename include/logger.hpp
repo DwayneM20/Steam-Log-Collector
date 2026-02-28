@@ -7,7 +7,7 @@ enum class SEVERITY_LEVEL
 {
     INFO,
     WARNING,
-    ERR,
+    ERR, // Named ERR to avoid collision with Windows ERROR macro
     FATAL,
     DEBUG
 };

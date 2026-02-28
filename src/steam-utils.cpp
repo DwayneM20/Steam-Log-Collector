@@ -78,93 +78,84 @@ namespace SteamUtils
 
     bool isValidSteamDirectory(const std::string &path)
     {
-        std::string os = getOperatingSystem();
+        namespace fs = std::filesystem;
+        fs::path dir(path);
 
-        if (os == "Windows")
-        {
-            return std::filesystem::exists(path + "\\steam.exe") ||
-                   std::filesystem::exists(path + "\\Steam.exe");
-        }
-        else if (os == "macOS")
-        {
-            return std::filesystem::exists(path + "/Steam") ||
-                   std::filesystem::exists(path + "/../Steam") ||
-                   std::filesystem::exists(path + "/steamapps");
-        }
-        else if (os == "Linux")
-        {
-            return std::filesystem::exists(path + "/steam") ||
-                   std::filesystem::exists(path + "/steam.sh") ||
-                   std::filesystem::exists(path + "/steamapps");
-        }
-
+#ifdef _WIN32
+        return fs::exists(dir / "steam.exe") ||
+               fs::exists(dir / "Steam.exe");
+#elif defined(__APPLE__)
+        return fs::exists(dir / "Steam") ||
+               fs::exists(dir / ".." / "Steam") ||
+               fs::exists(dir / "steamapps");
+#elif defined(__linux__)
+        return fs::exists(dir / "steam") ||
+               fs::exists(dir / "steam.sh") ||
+               fs::exists(dir / "steamapps");
+#else
         return false;
+#endif
     }
 
     std::vector<std::string> getSteamDirectoryPaths()
     {
+        namespace fs = std::filesystem;
         std::vector<std::string> paths;
-        std::string os = getOperatingSystem();
         std::string home = getHomeDirectory();
 
-        if (os == "Windows")
-        {
-            // Check multiple drives for Steam installation
-            std::vector<char> drives = {'C', 'D', 'E', 'F', 'G', 'H'};
-
-            for (char drive : drives)
-            {
-                std::string driveRoot = std::string(1, drive) + ":";
-                paths.push_back(driveRoot + "\\Program Files (x86)\\Steam");
-                paths.push_back(driveRoot + "\\Program Files\\Steam");
-                paths.push_back(driveRoot + "\\Steam");
-                paths.push_back(driveRoot + "\\Games\\Steam");
-            }
-
-            if (!home.empty())
-            {
-                paths.push_back(home + "\\AppData\\Local\\Steam");
-                paths.push_back(home + "\\Steam");
-            }
-
 #ifdef _WIN32
-            HKEY hKey;
-            if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\WOW6432Node\\Valve\\Steam"), 0, KEY_READ, &hKey) == ERROR_SUCCESS ||
-                RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Valve\\Steam"), 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+        std::vector<char> drives = {'C', 'D', 'E', 'F', 'G', 'H'};
+
+        for (char drive : drives)
+        {
+            fs::path driveRoot = fs::path(std::string(1, drive) + ":");
+            paths.push_back((driveRoot / "Program Files (x86)" / "Steam").string());
+            paths.push_back((driveRoot / "Program Files" / "Steam").string());
+            paths.push_back((driveRoot / "Steam").string());
+            paths.push_back((driveRoot / "Games" / "Steam").string());
+        }
+
+        if (!home.empty())
+        {
+            fs::path h(home);
+            paths.push_back((h / "AppData" / "Local" / "Steam").string());
+            paths.push_back((h / "Steam").string());
+        }
+
+        HKEY hKey;
+        if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\WOW6432Node\\Valve\\Steam"), 0, KEY_READ, &hKey) == ERROR_SUCCESS ||
+            RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Valve\\Steam"), 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+        {
+            char installPath[MAX_PATH];
+            DWORD bufferSize = sizeof(installPath);
+            if (RegQueryValueEx(hKey, TEXT("InstallPath"), NULL, NULL, (LPBYTE)installPath, &bufferSize) == ERROR_SUCCESS)
             {
-                char installPath[MAX_PATH];
-                DWORD bufferSize = sizeof(installPath);
-                if (RegQueryValueEx(hKey, TEXT("InstallPath"), NULL, NULL, (LPBYTE)installPath, &bufferSize) == ERROR_SUCCESS)
-                {
-                    paths.insert(paths.begin(), std::string(installPath));
-                }
-                RegCloseKey(hKey);
+                paths.insert(paths.begin(), std::string(installPath));
             }
+            RegCloseKey(hKey);
+        }
+#elif defined(__APPLE__)
+        if (!home.empty())
+        {
+            fs::path h(home);
+            paths.push_back((h / "Library" / "Application Support" / "Steam").string());
+            paths.push_back((h / ".steam").string());
+            paths.push_back((h / ".local" / "share" / "Steam").string());
+        }
+        paths.push_back("/Applications/Steam.app/Contents/MacOS");
+#elif defined(__linux__)
+        if (!home.empty())
+        {
+            fs::path h(home);
+            paths.push_back((h / ".steam" / "steam").string());
+            paths.push_back((h / ".steam").string());
+            paths.push_back((h / ".local" / "share" / "Steam").string());
+            paths.push_back((h / "snap" / "steam" / "common" / ".steam").string());
+            paths.push_back((h / ".var" / "app" / "com.valvesoftware.Steam" / ".steam").string());
+        }
+        paths.push_back("/usr/share/steam");
+        paths.push_back("/opt/steam");
 #endif
-        }
-        else if (os == "macOS")
-        {
-            if (!home.empty())
-            {
-                paths.push_back(home + "/Library/Application Support/Steam");
-                paths.push_back(home + "/.steam");
-                paths.push_back(home + "/.local/share/Steam");
-            }
-            paths.push_back("/Applications/Steam.app/Contents/MacOS");
-        }
-        else if (os == "Linux")
-        {
-            if (!home.empty())
-            {
-                paths.push_back(home + "/.steam/steam");
-                paths.push_back(home + "/.steam");
-                paths.push_back(home + "/.local/share/Steam");
-                paths.push_back(home + "/snap/steam/common/.steam");
-                paths.push_back(home + "/.var/app/com.valvesoftware.Steam/.steam");
-            }
-            paths.push_back("/usr/share/steam");
-            paths.push_back("/opt/steam");
-        }
         return paths;
     }
 
@@ -251,17 +242,7 @@ namespace SteamUtils
     std::vector<GameInfo> getInstalledGames(const std::string &steamDir)
     {
         std::vector<GameInfo> games;
-        std::string steamappsPath = steamDir;
-        std::string os = getOperatingSystem();
-
-        if (os == "Windows")
-        {
-            steamappsPath += "\\steamapps";
-        }
-        else
-        {
-            steamappsPath += "/steamapps";
-        }
+        std::string steamappsPath = (std::filesystem::path(steamDir) / "steamapps").string();
 
         Logger::log("Scanning for games in: " + steamappsPath, SEVERITY_LEVEL::INFO);
 
@@ -465,60 +446,58 @@ namespace SteamUtils
 
     std::vector<LogFile> findGameLogs(const std::string &steamDir, const GameInfo &game)
     {
+        namespace fs = std::filesystem;
         std::vector<LogFile> logFiles;
         std::vector<std::string> searchPaths;
-        std::string os = getOperatingSystem();
         std::string home = getHomeDirectory();
 
         Logger::log("Searching for logs for game: " + game.name + " (ID: " + game.appId + ")", SEVERITY_LEVEL::INFO);
 
-        if (os == "Windows")
-        {
-            searchPaths.push_back(steamDir + "\\steamapps\\common\\" + game.installDir);
-            if (!home.empty())
-            {
-                searchPaths.push_back(home + "\\AppData\\Local\\" + game.installDir);
-                searchPaths.push_back(home + "\\AppData\\Roaming\\" + game.installDir);
-                searchPaths.push_back(home + "\\AppData\\Local\\" + game.name);
-                searchPaths.push_back(home + "\\AppData\\Roaming\\" + game.name);
-                searchPaths.push_back(home + "\\Documents\\My Games\\" + game.installDir);
-                searchPaths.push_back(home + "\\Documents\\My Games\\" + game.name);
-                searchPaths.push_back(home + "\\Documents\\" + game.name);
-                searchPaths.push_back(home + "\\Documents\\" + game.installDir);
-            }
-        }
-        else if (os == "Linux")
-        {
-            searchPaths.push_back(steamDir + "/steamapps/common/" + game.installDir);
+        fs::path steam(steamDir);
+        searchPaths.push_back((steam / "steamapps" / "common" / game.installDir).string());
 
-            if (!home.empty())
-            {
-                searchPaths.push_back(home + "/.local/share/" + game.installDir);
-                searchPaths.push_back(home + "/.config/" + game.installDir);
-                searchPaths.push_back(home + "/." + game.installDir);
-                searchPaths.push_back(home + "/.local/share/" + game.name);
-                searchPaths.push_back(home + "/.config/" + game.name);
-                searchPaths.push_back(steamDir + "/steamapps/compatdata/" + game.appId + "/pfx/drive_c/users/steamuser/AppData/Local/" + game.installDir);
-                searchPaths.push_back(steamDir + "/steamapps/compatdata/" + game.appId + "/pfx/drive_c/users/steamuser/AppData/Roaming/" + game.installDir);
-                searchPaths.push_back(steamDir + "/steamapps/compatdata/" + game.appId + "/pfx/drive_c/users/steamuser/Documents/" + game.name);
-            }
-        }
-        else if (os == "macOS")
+#ifdef _WIN32
+        if (!home.empty())
         {
-            searchPaths.push_back(steamDir + "/steamapps/common/" + game.installDir);
-
-            if (!home.empty())
-            {
-                searchPaths.push_back(home + "/Library/Application Support/" + game.installDir);
-                searchPaths.push_back(home + "/Library/Application Support/" + game.name);
-                searchPaths.push_back(home + "/Library/Logs/" + game.installDir);
-                searchPaths.push_back(home + "/Library/Logs/" + game.name);
-                searchPaths.push_back(home + "/Library/Preferences/" + game.installDir);
-                searchPaths.push_back(home + "/Library/Preferences/" + game.name);
-                searchPaths.push_back(home + "/Documents/" + game.name);
-                searchPaths.push_back(home + "/Documents/" + game.installDir);
-            }
+            fs::path h(home);
+            searchPaths.push_back((h / "AppData" / "Local" / game.installDir).string());
+            searchPaths.push_back((h / "AppData" / "Roaming" / game.installDir).string());
+            searchPaths.push_back((h / "AppData" / "Local" / game.name).string());
+            searchPaths.push_back((h / "AppData" / "Roaming" / game.name).string());
+            searchPaths.push_back((h / "Documents" / "My Games" / game.installDir).string());
+            searchPaths.push_back((h / "Documents" / "My Games" / game.name).string());
+            searchPaths.push_back((h / "Documents" / game.name).string());
+            searchPaths.push_back((h / "Documents" / game.installDir).string());
         }
+#elif defined(__linux__)
+        if (!home.empty())
+        {
+            fs::path h(home);
+            searchPaths.push_back((h / ".local" / "share" / game.installDir).string());
+            searchPaths.push_back((h / ".config" / game.installDir).string());
+            fs::path dotGame = h / ("." + game.installDir);
+            searchPaths.push_back(dotGame.string());
+            searchPaths.push_back((h / ".local" / "share" / game.name).string());
+            searchPaths.push_back((h / ".config" / game.name).string());
+            fs::path compatdata = steam / "steamapps" / "compatdata" / game.appId / "pfx" / "drive_c" / "users" / "steamuser";
+            searchPaths.push_back((compatdata / "AppData" / "Local" / game.installDir).string());
+            searchPaths.push_back((compatdata / "AppData" / "Roaming" / game.installDir).string());
+            searchPaths.push_back((compatdata / "Documents" / game.name).string());
+        }
+#elif defined(__APPLE__)
+        if (!home.empty())
+        {
+            fs::path h(home);
+            searchPaths.push_back((h / "Library" / "Application Support" / game.installDir).string());
+            searchPaths.push_back((h / "Library" / "Application Support" / game.name).string());
+            searchPaths.push_back((h / "Library" / "Logs" / game.installDir).string());
+            searchPaths.push_back((h / "Library" / "Logs" / game.name).string());
+            searchPaths.push_back((h / "Library" / "Preferences" / game.installDir).string());
+            searchPaths.push_back((h / "Library" / "Preferences" / game.name).string());
+            searchPaths.push_back((h / "Documents" / game.name).string());
+            searchPaths.push_back((h / "Documents" / game.installDir).string());
+        }
+#endif
 
         std::sort(searchPaths.begin(), searchPaths.end());
         searchPaths.erase(std::unique(searchPaths.begin(), searchPaths.end()), searchPaths.end());
@@ -590,7 +569,7 @@ namespace SteamUtils
     std::string sanitizeFileName(const std::string &filename)
     {
         std::string sanitized = filename;
-        std::string invalidChars = "<>:\"/\\/?*";
+        std::string invalidChars = "<>:\"/\\|?*";
         for (char &c : sanitized)
         {
             if (invalidChars.find(c) != std::string::npos || c < 32)
@@ -617,60 +596,43 @@ namespace SteamUtils
             return "";
         }
 
+        namespace fs = std::filesystem;
         Logger::log("Home directory: " + home, SEVERITY_LEVEL::INFO);
-        std::string os = getOperatingSystem();
-        std::string steamLogDir;
-
-        if (os == "Windows")
-        {
-            steamLogDir = home + "\\steam-logs";
-        }
-        else
-        {
-            steamLogDir = home + "/steam-logs";
-        }
+        std::string steamLogDir = (fs::path(home) / "steam-logs").string();
 
         Logger::log("Attempting to create steam-logs directory: " + steamLogDir, SEVERITY_LEVEL::INFO);
 
         if (!createDirectory(steamLogDir))
         {
             Logger::log("Standard method failed, trying alternative approach...", SEVERITY_LEVEL::WARNING);
-            if (os == "Windows")
-            {
 #ifdef _WIN32
-                if (CreateDirectoryA(steamLogDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
-                {
-                    Logger::log("Windows API successfully created/found directory: " + steamLogDir, SEVERITY_LEVEL::INFO);
-                }
-                else
-                {
-                    DWORD error = GetLastError();
-                    Logger::log("Windows API failed with error: " + std::to_string(error), SEVERITY_LEVEL::ERR);
-
-                    std::string documentsDir = home + "\\Documents\\steam-logs";
-                    Logger::log("Trying fallback location: " + documentsDir, SEVERITY_LEVEL::INFO);
-
-                    if (CreateDirectoryA(documentsDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
-                    {
-                        steamLogDir = documentsDir;
-                        Logger::log("Successfully created fallback directory: " + steamLogDir, SEVERITY_LEVEL::INFO);
-                    }
-                    else
-                    {
-                        Logger::log("All directory creation attempts failed", SEVERITY_LEVEL::ERR);
-                        return "";
-                    }
-                }
-#else
-                Logger::log("Windows API not available", SEVERITY_LEVEL::ERR);
-                return "";
-#endif
+            if (CreateDirectoryA(steamLogDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
+            {
+                Logger::log("Windows API successfully created/found directory: " + steamLogDir, SEVERITY_LEVEL::INFO);
             }
             else
             {
-                Logger::log("Failed to create steam-logs directory and no fallback available for this OS", SEVERITY_LEVEL::ERR);
-                return "";
+                DWORD error = GetLastError();
+                Logger::log("Windows API failed with error: " + std::to_string(error), SEVERITY_LEVEL::ERR);
+
+                std::string documentsDir = (fs::path(home) / "Documents" / "steam-logs").string();
+                Logger::log("Trying fallback location: " + documentsDir, SEVERITY_LEVEL::INFO);
+
+                if (CreateDirectoryA(documentsDir.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS)
+                {
+                    steamLogDir = documentsDir;
+                    Logger::log("Successfully created fallback directory: " + steamLogDir, SEVERITY_LEVEL::INFO);
+                }
+                else
+                {
+                    Logger::log("All directory creation attempts failed", SEVERITY_LEVEL::ERR);
+                    return "";
+                }
             }
+#else
+            Logger::log("Failed to create steam-logs directory", SEVERITY_LEVEL::ERR);
+            return "";
+#endif
         }
 
         if (!directoryExists(steamLogDir))
@@ -685,16 +647,7 @@ namespace SteamUtils
         timestamp << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
 
         std::string sanitizedGameName = sanitizeFileName(gameName);
-        std::string gameDir;
-
-        if (os == "Windows")
-        {
-            gameDir = steamLogDir + "\\" + sanitizedGameName + "_" + timestamp.str();
-        }
-        else
-        {
-            gameDir = steamLogDir + "/" + sanitizedGameName + "_" + timestamp.str();
-        }
+        std::string gameDir = (fs::path(steamLogDir) / (sanitizedGameName + "_" + timestamp.str())).string();
 
         Logger::log("Creating game-specific directory: " + gameDir, SEVERITY_LEVEL::INFO);
 
@@ -739,17 +692,9 @@ namespace SteamUtils
 
         Logger::log("Starting to copy " + std::to_string(logFiles.size()) + " log files to: " + outputDir, SEVERITY_LEVEL::INFO);
 
+        namespace fs = std::filesystem;
         int copiedCount = 0;
-        std::string os = getOperatingSystem();
-        std::string summaryPath;
-        if (os == "Windows")
-        {
-            summaryPath = outputDir + "\\log_summary.txt";
-        }
-        else
-        {
-            summaryPath = outputDir + "/log_summary.txt";
-        }
+        std::string summaryPath = (fs::path(outputDir) / "log_summary.txt").string();
 
         std::ofstream summaryFile(summaryPath);
         if (summaryFile.is_open())
@@ -773,15 +718,7 @@ namespace SteamUtils
             std::string destFileName = std::to_string(i + 1) + "_" + sanitizeFileName(logFile.filename);
             destFileName = sanitizeFileName(destFileName);
 
-            std::string destPath;
-            if (os == "Windows")
-            {
-                destPath = outputDir + "\\" + destFileName;
-            }
-            else
-            {
-                destPath = outputDir + "/" + destFileName;
-            }
+            std::string destPath = (fs::path(outputDir) / destFileName).string();
 
             if (copyFile(logFile.path, destPath))
             {
