@@ -2,16 +2,23 @@
 #include <iostream>
 #include <ctime>
 #include <string>
+#include <sstream>
+#include <iomanip>
 
 namespace Logger
 {
     static std::string getTimestamp()
     {
         std::time_t now = std::time(nullptr);
-        std::string time = std::asctime(std::localtime(&now));
-        if (!time.empty() && time.back() == '\n')
-            time.pop_back();
-        return time;
+        std::tm tmBuf{};
+#ifdef _WIN32
+        localtime_s(&tmBuf, &now);
+#else
+        localtime_r(&now, &tmBuf);
+#endif
+        std::ostringstream oss;
+        oss << std::put_time(&tmBuf, "%c");
+        return oss.str();
     }
 
     void log(const std::string &message)

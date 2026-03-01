@@ -353,8 +353,14 @@ namespace SteamUtils
                 ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
             auto time_t = std::chrono::system_clock::to_time_t(sctp);
 
+            std::tm tmBuf{};
+#ifdef _WIN32
+            localtime_s(&tmBuf, &time_t);
+#else
+            localtime_r(&time_t, &tmBuf);
+#endif
             std::ostringstream oss;
-            oss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
+            oss << std::put_time(&tmBuf, "%Y-%m-%d %H:%M:%S");
             return oss.str();
         }
         catch (const std::exception &e)
@@ -629,8 +635,14 @@ namespace SteamUtils
 
         auto now = std::chrono::system_clock::now();
         auto time_t = std::chrono::system_clock::to_time_t(now);
+        std::tm tmBuf{};
+#ifdef _WIN32
+        localtime_s(&tmBuf, &time_t);
+#else
+        localtime_r(&time_t, &tmBuf);
+#endif
         std::ostringstream timestamp;
-        timestamp << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
+        timestamp << std::put_time(&tmBuf, "%Y%m%d_%H%M%S");
 
         std::string sanitizedGameName = sanitizeFileName(gameName);
         fs::path gameDir = steamLogDir / (sanitizedGameName + "_" + timestamp.str());
@@ -685,11 +697,17 @@ namespace SteamUtils
         {
             auto now = std::chrono::system_clock::now();
             auto time_t = std::chrono::system_clock::to_time_t(now);
+            std::tm tmBuf{};
+#ifdef _WIN32
+            localtime_s(&tmBuf, &time_t);
+#else
+            localtime_r(&time_t, &tmBuf);
+#endif
 
             summaryFile << "Steam Log Collection Summary\n";
             summaryFile << "============================\n";
             summaryFile << "Game: " << gameName << "\n";
-            summaryFile << "Collection Date: " << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S") << "\n";
+            summaryFile << "Collection Date: " << std::put_time(&tmBuf, "%Y-%m-%d %H:%M:%S") << "\n";
             summaryFile << "Total Files Found: " << logFiles.size() << "\n\n";
             summaryFile << "Files Collected:\n";
             summaryFile << "-----------------\n";
