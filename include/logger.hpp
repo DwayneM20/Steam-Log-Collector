@@ -1,5 +1,4 @@
-#ifndef LOGGER_HPP
-#define LOGGER_HPP
+#pragma once
 
 #include <string>
 #include <string_view>
@@ -19,5 +18,3 @@ namespace Logger
     void log(std::string_view message, SeverityLevel level);
 
 }
-
-#endif

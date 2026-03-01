@@ -1,5 +1,4 @@
-#ifndef THEME_HPP
-#define THEME_HPP
+#pragma once
 
 #include <imgui.h>
 #include "colors.hpp"
@@ -146,5 +145,3 @@ namespace UITheme
             UIColors::DeepNavy.z, 0.5f);
     }
 }
-
-#endif

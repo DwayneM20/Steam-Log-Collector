@@ -1,5 +1,4 @@
-#ifndef UI_WIDGETS_HPP
-#define UI_WIDGETS_HPP
+#pragma once
 
 #include <imgui.h>
 #include <string>
@@ -31,7 +30,7 @@ namespace UIWidgets
         ImGui::Spacing();
     }
 
-    inline bool PrimaryButton(
+    [[nodiscard]] inline bool PrimaryButton(
         const std::string &label, const ImVec2 &size = ImVec2(0, 0))
     {
         ImGui::PushStyleColor(ImGuiCol_Button, UIColors::Base);
@@ -42,7 +41,7 @@ namespace UIWidgets
         return result;
     }
 
-    inline bool SecondaryButton(
+    [[nodiscard]] inline bool SecondaryButton(
         const std::string &label, const ImVec2 &size = ImVec2(0, 0))
     {
         ImGui::PushStyleColor(ImGuiCol_Button, UIColors::DeepNavy);
@@ -66,5 +65,3 @@ namespace UIWidgets
         ImGui::Text("%s", value.c_str());
     }
 }
-
-#endif

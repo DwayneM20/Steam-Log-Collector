@@ -295,19 +295,12 @@ namespace SteamUtils
         return nullptr;
     }
 
-    std::vector<std::string> getLogFileExtensions()
-    {
-        return {".log", ".txt", ".out", ".err", ".crash", ".dmp", ".mdmp", ".rpt",
-                ".debug", ".trace", ".console", ".output", ".error"};
-    }
-
     bool isLogFile(std::string_view filename)
     {
         std::string lowerFilename{filename};
         std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), ::tolower);
-        std::vector<std::string> logExtensions = getLogFileExtensions();
 
-        for (const auto &ext : logExtensions)
+        for (const auto &ext : logFileExtensions)
         {
             if (lowerFilename.length() >= ext.length() &&
                 lowerFilename.substr(lowerFilename.length() - ext.length()) == ext)
@@ -316,9 +309,11 @@ namespace SteamUtils
             }
         }
 
-        std::vector<std::string> logPatterns = {
-            "log", "crash", "error", "debug", "console", "output",
-            "stderr", "stdout", "trace", "dump", "report"};
+        static constexpr std::array logPatterns = {
+            std::string_view{"log"}, std::string_view{"crash"}, std::string_view{"error"},
+            std::string_view{"debug"}, std::string_view{"console"}, std::string_view{"output"},
+            std::string_view{"stderr"}, std::string_view{"stdout"}, std::string_view{"trace"},
+            std::string_view{"dump"}, std::string_view{"report"}};
 
         for (const auto &pattern : logPatterns)
         {
@@ -401,8 +396,7 @@ namespace SteamUtils
                             logFile.lastModified = formatFileTime(logFile.path);
 
                             std::string lowerFilename = filename;
-                            std::transform(lowerFilename.begin(), lowerFilename.end(),
-                                           lowerFilename.begin(), ::tolower);
+                            std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), ::tolower);
 
                             if (lowerFilename.find("crash") != std::string::npos ||
                                 lowerFilename.find("dump") != std::string::npos)

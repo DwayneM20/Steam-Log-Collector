@@ -1,17 +1,14 @@
-#ifndef FONTS_HPP
-#define FONTS_HPP
+#pragma once
 
 #include <imgui.h>
 
 namespace UIFonts
 {
-    ImFont *GetDefault();
-    ImFont *GetLarge();
-    ImFont *GetMedium();
-    ImFont *GetTitle();
-    ImFont *GetSmall();
+    [[nodiscard]] ImFont *GetDefault();
+    [[nodiscard]] ImFont *GetLarge();
+    [[nodiscard]] ImFont *GetMedium();
+    [[nodiscard]] ImFont *GetTitle();
+    [[nodiscard]] ImFont *GetSmall();
 
     void LoadFonts(ImGuiIO &io);
 }
-
-#endif

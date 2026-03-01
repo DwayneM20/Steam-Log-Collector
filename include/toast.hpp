@@ -1,5 +1,4 @@
-#ifndef TOAST_HPP
-#define TOAST_HPP
+#pragma once
 
 #include <imgui.h>
 #include <chrono>
@@ -54,5 +53,3 @@ namespace UIToast
     void Render();
 
 }
-
-#endif

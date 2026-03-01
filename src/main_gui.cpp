@@ -879,10 +879,8 @@ bool SetWindowIcon(GLFWwindow *window, const char *iconPath)
     return true;
 }
 
-int main(int argc, char *argv[])
+int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
-    (void)argc;
-    (void)argv;
 
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -912,7 +910,6 @@ int main(int argc, char *argv[])
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
-    (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     UIFonts::LoadFonts(io);
