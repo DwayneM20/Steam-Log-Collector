@@ -277,9 +277,9 @@ namespace SteamUtils
         return games;
     }
 
-    const GameInfo *findGameByName(const std::vector<GameInfo> &games, const std::string &gameName)
+    const GameInfo *findGameByName(const std::vector<GameInfo> &games, std::string_view gameName)
     {
-        std::string lowerGameName = gameName;
+        std::string lowerGameName{gameName};
         std::transform(lowerGameName.begin(), lowerGameName.end(), lowerGameName.begin(), ::tolower);
 
         for (const auto &game : games)
@@ -301,9 +301,9 @@ namespace SteamUtils
                 ".debug", ".trace", ".console", ".output", ".error"};
     }
 
-    bool isLogFile(const std::string &filename)
+    bool isLogFile(std::string_view filename)
     {
-        std::string lowerFilename = filename;
+        std::string lowerFilename{filename};
         std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), ::tolower);
         std::vector<std::string> logExtensions = getLogFileExtensions();
 
@@ -564,9 +564,9 @@ namespace SteamUtils
         }
     }
 
-    std::string sanitizeFileName(const std::string &filename)
+    std::string sanitizeFileName(std::string_view filename)
     {
-        std::string sanitized = filename;
+        std::string sanitized{filename};
         std::string invalidChars = "<>:\"/\\|?*";
         for (char &c : sanitized)
         {
@@ -585,7 +585,7 @@ namespace SteamUtils
         return sanitized;
     }
 
-    fs::path createOutputDirectory(const std::string &gameName)
+    fs::path createOutputDirectory(std::string_view gameName)
     {
         fs::path home = getHomeDirectory();
         if (home.empty())
@@ -684,11 +684,11 @@ namespace SteamUtils
         }
     }
 
-    int copyLogsToDirectory(const std::vector<LogFile> &logFiles, const fs::path &outputDir, const std::string &gameName)
+    int copyLogsToDirectory(const std::vector<LogFile> &logFiles, const fs::path &outputDir, std::string_view gameName)
     {
         if (logFiles.empty())
         {
-            Logger::log("No log files to copy for game: " + gameName, SeverityLevel::Info);
+            Logger::log(std::string("No log files to copy for game: ").append(gameName), SeverityLevel::Info);
             return 0;
         }
 

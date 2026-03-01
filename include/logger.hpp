@@ -2,6 +2,7 @@
 #define LOGGER_HPP
 
 #include <string>
+#include <string_view>
 
 enum class SeverityLevel
 {
@@ -14,8 +15,8 @@ enum class SeverityLevel
 
 namespace Logger
 {
-    void log(const std::string &message);
-    void log(const std::string &message, SeverityLevel level);
+    void log(std::string_view message);
+    void log(std::string_view message, SeverityLevel level);
 
 }
 

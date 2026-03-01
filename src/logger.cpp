@@ -2,6 +2,7 @@
 #include <iostream>
 #include <ctime>
 #include <string>
+#include <string_view>
 #include <sstream>
 #include <iomanip>
 
@@ -21,12 +22,12 @@ namespace Logger
         return oss.str();
     }
 
-    void log(const std::string &message)
+    void log(std::string_view message)
     {
         std::cout << "[" << getTimestamp() << "] " << message << std::endl;
     }
 
-    void log(const std::string &message, SeverityLevel level)
+    void log(std::string_view message, SeverityLevel level)
     {
         std::string levelStr;
 

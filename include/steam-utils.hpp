@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace SteamUtils
@@ -78,7 +79,7 @@ namespace SteamUtils
      * @param gameName Name of the game to find
      * @return Pointer to GameInfo if found, nullptr otherwise
      */
-    const GameInfo *findGameByName(const std::vector<GameInfo> &games, const std::string &gameName);
+    const GameInfo *findGameByName(const std::vector<GameInfo> &games, std::string_view gameName);
 
     struct LogFile
     {
@@ -108,7 +109,7 @@ namespace SteamUtils
      * @param filename Name of the file to check
      * @return True if the file appears to be a log file
      */
-    bool isLogFile(const std::string &filename);
+    bool isLogFile(std::string_view filename);
 
     /**
      * @brief Recursively searches for log files in a directory
@@ -139,7 +140,7 @@ namespace SteamUtils
      * @param gameName Name of the game
      * @return Path to the created output directory, empty path if creation failed
      */
-    fs::path createOutputDirectory(const std::string &gameName);
+    fs::path createOutputDirectory(std::string_view gameName);
 
     /**
      * @brief Copies log files to the output directory
@@ -148,7 +149,7 @@ namespace SteamUtils
      * @param gameName Name of the game
      * @return Number of files successfully copied
      */
-    int copyLogsToDirectory(const std::vector<LogFile> &logFiles, const fs::path &outputDir, const std::string &gameName);
+    int copyLogsToDirectory(const std::vector<LogFile> &logFiles, const fs::path &outputDir, std::string_view gameName);
 
     /**
      * @brief Safely copies a single file
@@ -170,6 +171,6 @@ namespace SteamUtils
      * @param filename The original file name
      * @return Sanitized file name safe for file system usage
      */
-    std::string sanitizeFileName(const std::string &filename);
+    std::string sanitizeFileName(std::string_view filename);
 }
 #endif
