@@ -1,5 +1,6 @@
 #include <iostream>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <iomanip>
 #include "logger.hpp"
@@ -78,9 +79,9 @@ int main(int argc, char *argv[])
 
     std::string gameName = argv[1];
 
-    const SteamUtils::GameInfo *foundGame = SteamUtils::findGameByName(games, gameName);
+    std::optional<SteamUtils::GameInfo> foundGame = SteamUtils::findGameByName(games, gameName);
 
-    if (foundGame == nullptr)
+    if (!foundGame)
     {
         std::cerr << "Game not found: " << gameName << std::endl;
         std::cout << "Please make sure the game name matches one from the list above." << std::endl;

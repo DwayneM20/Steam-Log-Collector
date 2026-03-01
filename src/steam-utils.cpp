@@ -277,7 +277,7 @@ namespace SteamUtils
         return games;
     }
 
-    const GameInfo *findGameByName(const std::vector<GameInfo> &games, std::string_view gameName)
+    std::optional<GameInfo> findGameByName(const std::vector<GameInfo> &games, std::string_view gameName)
     {
         std::string lowerGameName{gameName};
         std::transform(lowerGameName.begin(), lowerGameName.end(), lowerGameName.begin(), ::tolower);
@@ -289,10 +289,10 @@ namespace SteamUtils
 
             if (lowerCurrentGame == lowerGameName || lowerCurrentGame.find(lowerGameName) != std::string::npos)
             {
-                return &game;
+                return game;
             }
         }
-        return nullptr;
+        return std::nullopt;
     }
 
     bool isLogFile(std::string_view filename)

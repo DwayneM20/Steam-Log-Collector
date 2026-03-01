@@ -2,6 +2,7 @@
 
 #include <array>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -77,9 +78,9 @@ namespace SteamUtils
      * @brief Finds a game by name (case-insensitive search)
      * @param games Vector of games to search through
      * @param gameName Name of the game to find
-     * @return Pointer to GameInfo if found, nullptr otherwise
+     * @return GameInfo if found, std::nullopt otherwise
      */
-    [[nodiscard]] const GameInfo *findGameByName(const std::vector<GameInfo> &games, std::string_view gameName);
+    [[nodiscard]] std::optional<GameInfo> findGameByName(const std::vector<GameInfo> &games, std::string_view gameName);
 
     struct LogFile
     {
