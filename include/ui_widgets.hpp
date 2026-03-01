@@ -1,14 +1,14 @@
 #pragma once
 
 #include <imgui.h>
-#include <string>
+#include <string_view>
 #include "colors.hpp"
 #include "fonts.hpp"
 
 namespace UIWidgets
 {
     inline void StatusBadge(
-        const std::string &text, const ImVec4 &color)
+        std::string_view text, const ImVec4 &color)
     {
         ImGui::PushStyleColor(ImGuiCol_Button, color);
         ImGui::PushStyleColor(
@@ -17,32 +17,32 @@ namespace UIWidgets
         ImGui::PushStyleColor(
             ImGuiCol_ButtonActive,
             ImVec4(color.x * 0.9f, color.y * 0.9f, color.z * 0.9f, 1.0f));
-        ImGui::Button(text.c_str());
+        ImGui::Button(text.data());
         ImGui::PopStyleColor(3);
     }
 
-    inline void SectionHeader(const std::string &title)
+    inline void SectionHeader(std::string_view title)
     {
         ImGui::PushFont(UIFonts::GetLarge());
-        ImGui::TextColored(UIColors::LavenderBlue, "%s", title.c_str());
+        ImGui::TextColored(UIColors::LavenderBlue, "%s", title.data());
         ImGui::PopFont();
         ImGui::Separator();
         ImGui::Spacing();
     }
 
     [[nodiscard]] inline bool PrimaryButton(
-        const std::string &label, const ImVec2 &size = ImVec2(0, 0))
+        std::string_view label, const ImVec2 &size = ImVec2(0, 0))
     {
         ImGui::PushStyleColor(ImGuiCol_Button, UIColors::Base);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, UIColors::LavenderBlue);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, UIColors::SoftCoral);
-        bool result = ImGui::Button(label.c_str(), size);
+        bool result = ImGui::Button(label.data(), size);
         ImGui::PopStyleColor(3);
         return result;
     }
 
     [[nodiscard]] inline bool SecondaryButton(
-        const std::string &label, const ImVec2 &size = ImVec2(0, 0))
+        std::string_view label, const ImVec2 &size = ImVec2(0, 0))
     {
         ImGui::PushStyleColor(ImGuiCol_Button, UIColors::DeepNavy);
         ImGui::PushStyleColor(
@@ -53,15 +53,15 @@ namespace UIWidgets
             ImGuiCol_ButtonActive,
             ImVec4(UIColors::CoolGray.x, UIColors::CoolGray.y,
                    UIColors::CoolGray.z, 1.0f));
-        bool result = ImGui::Button(label.c_str(), size);
+        bool result = ImGui::Button(label.data(), size);
         ImGui::PopStyleColor(3);
         return result;
     }
 
-    inline void InfoText(const std::string &label, const std::string &value)
+    inline void InfoText(std::string_view label, std::string_view value)
     {
-        ImGui::TextColored(UIColors::CoolGray, "%s", label.c_str());
+        ImGui::TextColored(UIColors::CoolGray, "%s", label.data());
         ImGui::SameLine();
-        ImGui::Text("%s", value.c_str());
+        ImGui::Text("%s", value.data());
     }
 }
