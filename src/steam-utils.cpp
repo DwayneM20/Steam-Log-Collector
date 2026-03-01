@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <chrono>
 #include <memory>
+#include <string_view>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -251,8 +252,11 @@ namespace SteamUtils
                 if (entry.is_regular_file())
                 {
                     std::string filename = entry.path().filename().string();
-                    if (filename.substr(0, 12) == "appmanifest_" &&
-                        filename.length() > 4 && filename.substr(filename.length() - 4) == ".acf")
+                    constexpr std::string_view acfPrefix = "appmanifest_";
+                    constexpr std::string_view acfSuffix = ".acf";
+                    if (filename.size() > acfPrefix.size() + acfSuffix.size() &&
+                        filename.compare(0, acfPrefix.size(), acfPrefix) == 0 &&
+                        filename.compare(filename.size() - acfSuffix.size(), acfSuffix.size(), acfSuffix) == 0)
                     {
                         GameInfo game = parseAcfFile(entry.path());
                         if (!game.name.empty() && !game.appId.empty())
@@ -329,11 +333,12 @@ namespace SteamUtils
 
     std::string formatFileSize(std::uintmax_t size)
     {
-        const char *units[] = {"B", "KB", "MB", "GB"};
+        constexpr const char *units[] = {"B", "KB", "MB", "GB"};
+        constexpr int maxUnitIndex = static_cast<int>(std::size(units)) - 1;
         double fileSize = static_cast<double>(size);
         int unitIndex = 0;
 
-        while (fileSize >= 1024.0 && unitIndex < 3)
+        while (fileSize >= 1024.0 && unitIndex < maxUnitIndex)
         {
             fileSize /= 1024.0;
             unitIndex++;

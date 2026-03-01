@@ -103,22 +103,26 @@ namespace UIToast
         auto now = std::chrono::steady_clock::now();
         ImVec2 displaySize = ImGui::GetIO().DisplaySize;
 
-        float padding = 20.0f;
-        float toastWidth = 350.0f;
-        float spacing = 10.0f;
-        float fadeOutDuration = 0.5f;
+        constexpr float padding = 20.0f;
+        constexpr float toastWidth = 350.0f;
+        constexpr float toastHeight = 60.0f;
+        constexpr float spacing = 10.0f;
+        constexpr float fadeInDuration = 0.2f;
+        constexpr float fadeOutDuration = 0.5f;
+        constexpr float minVisibleOpacity = 0.01f;
+        constexpr float toastRounding = 8.0f;
 
         float startX = displaySize.x - toastWidth - padding;
         float startY = padding;
 
         toasts.erase(
             std::remove_if(toasts.begin(), toasts.end(),
-                           [&now](const Toast &t)
+                           [&now, fadeOutDuration](const Toast &t)
                            {
                                float elapsed =
                                    std::chrono::duration<float>(now - t.createdAt)
                                        .count();
-                               return elapsed > t.duration + 0.5f;
+                               return elapsed > t.duration + fadeOutDuration;
                            }),
             toasts.end());
 
@@ -128,9 +132,9 @@ namespace UIToast
             float elapsed =
                 std::chrono::duration<float>(now - toast.createdAt).count();
 
-            if (elapsed < 0.2f)
+            if (elapsed < fadeInDuration)
             {
-                toast.opacity = elapsed / 0.2f;
+                toast.opacity = elapsed / fadeInDuration;
             }
             else if (elapsed > toast.duration - fadeOutDuration)
             {
@@ -144,17 +148,17 @@ namespace UIToast
                 toast.opacity = 1.0f;
             }
 
-            if (toast.opacity <= 0.01f)
+            if (toast.opacity <= minVisibleOpacity)
                 continue;
 
             ImVec4 color = GetColor(toast.type);
-            float yPos = startY + visibleIndex * (60.0f + spacing);
+            float yPos = startY + visibleIndex * (toastHeight + spacing);
 
             ImGui::SetNextWindowPos(ImVec2(startX, yPos));
             ImGui::SetNextWindowSize(ImVec2(toastWidth, 0));
 
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, toast.opacity);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, toastRounding);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(15, 12));
             ImGui::PushStyleColor(
                 ImGuiCol_WindowBg,

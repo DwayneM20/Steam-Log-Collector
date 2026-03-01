@@ -55,8 +55,11 @@ struct AppState
     bool showPreviewWindow = false;
 };
 
+constexpr size_t kMaxPreviewBytes = 1024 * 1024; // 1 MB
+constexpr size_t kReadBufferSize = 4096;
+
 std::string ReadFileContent(const std::filesystem::path &filePath,
-                            size_t maxBytes = 1024 * 1024)
+                            size_t maxBytes = kMaxPreviewBytes)
 {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open())
@@ -65,7 +68,7 @@ std::string ReadFileContent(const std::filesystem::path &filePath,
     }
 
     std::ostringstream content;
-    char buffer[4096];
+    char buffer[kReadBufferSize];
     size_t bytesRead = 0;
 
     while (bytesRead < maxBytes && file.read(buffer, sizeof(buffer)))
