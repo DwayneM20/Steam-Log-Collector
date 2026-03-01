@@ -24,7 +24,7 @@ namespace UIWidgets
 
     inline void SectionHeader(const std::string &title)
     {
-        ImGui::PushFont(UIFonts::Large);
+        ImGui::PushFont(UIFonts::GetLarge());
         ImGui::TextColored(UIColors::LavenderBlue, "%s", title.c_str());
         ImGui::PopFont();
         ImGui::Separator();

@@ -52,6 +52,8 @@ if(BUILD_GUI)
     src/main_gui.cpp
     src/logger.cpp
     src/steam-utils.cpp
+    src/fonts.cpp
+    src/toast.cpp
     ${IMGUI_SOURCES}
     )
 
@@ -63,7 +65,8 @@ if(BUILD_GUI)
         OpenGL::GL
     )
 
-if(WIN32)
+    if(WIN32)
+        target_sources(steam-log-collector-gui PRIVATE resources/icon.rc)
         target_link_libraries(steam-log-collector-gui advapi32)
     endif()
 endif()
@@ -75,6 +78,5 @@ add_executable(steam-log-collector-cli
 )
 
 if(WIN32)
-    target_sources(steam-log-collector-gui PRIVATE resources/icon.rc)
     target_link_libraries(steam-log-collector-cli advapi32)
 endif()

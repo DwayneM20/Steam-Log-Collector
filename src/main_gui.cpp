@@ -129,7 +129,7 @@ void RenderAboutPopup(AppState &state)
     if (ImGui::BeginPopupModal("About Steam Log Collector", nullptr,
                                ImGuiWindowFlags_AlwaysAutoResize))
     {
-        ImGui::PushFont(UIFonts::Large);
+        ImGui::PushFont(UIFonts::GetLarge());
         ImGui::TextColored(UIColors::LavenderBlue, "Steam Log Collector");
         ImGui::PopFont();
 
@@ -174,7 +174,7 @@ void RenderPreviewWindow(AppState &state)
         {
             const auto &log = state.logFiles[state.previewLogIndex];
 
-            ImGui::PushFont(UIFonts::Large);
+            ImGui::PushFont(UIFonts::GetLarge());
             ImGui::TextColored(UIColors::LavenderBlue, "%s",
                                log.filename.c_str());
             ImGui::PopFont();
@@ -195,7 +195,7 @@ void RenderPreviewWindow(AppState &state)
 
             ImGui::BeginChild("PreviewContent", ImVec2(0, -50), true,
                               ImGuiWindowFlags_HorizontalScrollbar);
-            ImGui::PushFont(UIFonts::Medium);
+            ImGui::PushFont(UIFonts::GetMedium());
             ImGui::TextUnformatted(state.previewContent.c_str());
             ImGui::PopFont();
             ImGui::EndChild();
@@ -231,7 +231,7 @@ void RenderWelcomeScreen(AppState &state)
     ImGui::SetCursorPosY(startY);
 
     // Title section
-    ImGui::PushFont(UIFonts::Title);
+    ImGui::PushFont(UIFonts::GetTitle());
     float titleWidth = ImGui::CalcTextSize("Steam Log Collector").x;
     ImGui::SetCursorPosX((windowSize.x - titleWidth) / 2.0f);
     ImGui::TextColored(UIColors::LavenderBlue, "Steam Log Collector");
@@ -239,7 +239,7 @@ void RenderWelcomeScreen(AppState &state)
 
     ImGui::Spacing();
 
-    ImGui::PushFont(UIFonts::Default);
+    ImGui::PushFont(UIFonts::GetDefault());
     const char *subtitle = "Collect and organize game log files from Steam";
     float subtitleWidth = ImGui::CalcTextSize(subtitle).x;
     ImGui::SetCursorPosX((windowSize.x - subtitleWidth) / 2.0f);
@@ -379,7 +379,7 @@ void RenderGameSelectionScreen(AppState &state)
     // Header row
     ImGui::BeginGroup();
 
-    ImGui::PushFont(UIFonts::Title);
+    ImGui::PushFont(UIFonts::GetTitle());
     ImGui::TextColored(UIColors::LavenderBlue, "Select a Game");
     ImGui::PopFont();
 
@@ -407,7 +407,7 @@ void RenderGameSelectionScreen(AppState &state)
     ImGui::SetCursorPos(ImVec2(infoPadding, infoPadding));
 
     ImGui::BeginGroup();
-    ImGui::PushFont(UIFonts::Default);
+    ImGui::PushFont(UIFonts::GetDefault());
     ImGui::TextColored(UIColors::CoolGray, "Steam Directory:");
     ImGui::SameLine();
     ImGui::TextColored(UIColors::OffWhite, "%s", state.steamDir.string().c_str());
@@ -434,7 +434,7 @@ void RenderGameSelectionScreen(AppState &state)
         float centerY = listHeight / 2.0f - 60.0f;
         ImGui::SetCursorPosY(centerY);
 
-        ImGui::PushFont(UIFonts::Large);
+        ImGui::PushFont(UIFonts::GetLarge());
         const char *noGamesText = "No Games Found";
         float textWidth = ImGui::CalcTextSize(noGamesText).x;
         ImGui::SetCursorPosX((contentWidth - textWidth) / 2.0f);
@@ -473,7 +473,7 @@ void RenderGameSelectionScreen(AppState &state)
         float innerPadding = 15.0f;
         ImGui::SetCursorPos(ImVec2(innerPadding, innerPadding));
 
-        ImGui::PushFont(UIFonts::Default);
+        ImGui::PushFont(UIFonts::GetDefault());
         ImGui::TextColored(UIColors::CoolGray,
                            "Click on a game to view its log files:");
         ImGui::PopFont();
@@ -510,14 +510,14 @@ void RenderGameSelectionScreen(AppState &state)
 
             ImGui::SetCursorPos(ImVec2(15, 12));
 
-            ImGui::PushFont(UIFonts::Large);
+            ImGui::PushFont(UIFonts::GetLarge());
             ImGui::TextColored(
                 hovered ? UIColors::LavenderBlue : UIColors::OffWhite, "%s",
                 game.name.c_str());
             ImGui::PopFont();
 
             ImGui::SetCursorPosX(15);
-            ImGui::PushFont(UIFonts::Small);
+            ImGui::PushFont(UIFonts::GetSmall());
             ImGui::TextColored(UIColors::CoolGray, "App ID: %s  |  %s",
                                game.appId.c_str(), game.installDir.c_str());
             ImGui::PopFont();
@@ -594,7 +594,7 @@ void RenderLogFilesScreen(AppState &state)
     float cardPadding = 20.0f;
     ImGui::SetCursorPos(ImVec2(cardPadding, cardPadding));
 
-    ImGui::PushFont(UIFonts::Title);
+    ImGui::PushFont(UIFonts::GetTitle());
     ImGui::TextColored(UIColors::LavenderBlue, "%s", game.name.c_str());
     ImGui::PopFont();
 
@@ -607,28 +607,28 @@ void RenderLogFilesScreen(AppState &state)
     ImGui::SetColumnWidth(1, colWidth);
     ImGui::SetColumnWidth(2, colWidth);
 
-    ImGui::PushFont(UIFonts::Medium);
+    ImGui::PushFont(UIFonts::GetMedium());
     ImGui::TextColored(UIColors::CoolGray, "APP ID");
     ImGui::PopFont();
-    ImGui::PushFont(UIFonts::Default);
+    ImGui::PushFont(UIFonts::GetDefault());
     ImGui::Text("%s", game.appId.c_str());
     ImGui::PopFont();
 
     ImGui::NextColumn();
 
-    ImGui::PushFont(UIFonts::Medium);
+    ImGui::PushFont(UIFonts::GetMedium());
     ImGui::TextColored(UIColors::CoolGray, "INSTALL DIRECTORY");
     ImGui::PopFont();
-    ImGui::PushFont(UIFonts::Default);
+    ImGui::PushFont(UIFonts::GetDefault());
     ImGui::TextWrapped("%s", game.installDir.c_str());
     ImGui::PopFont();
 
     ImGui::NextColumn();
 
-    ImGui::PushFont(UIFonts::Medium);
+    ImGui::PushFont(UIFonts::GetMedium());
     ImGui::TextColored(UIColors::CoolGray, "LOG FILES FOUND");
     ImGui::PopFont();
-    ImGui::PushFont(UIFonts::Default);
+    ImGui::PushFont(UIFonts::GetDefault());
     ImGui::Text("%zu", state.logFiles.size());
     ImGui::PopFont();
 
@@ -650,7 +650,7 @@ void RenderLogFilesScreen(AppState &state)
         float centerY = emptyHeight / 2.0f - 50.0f;
         ImGui::SetCursorPosY(centerY);
 
-        ImGui::PushFont(UIFonts::Large);
+        ImGui::PushFont(UIFonts::GetLarge());
         const char *noLogsText = "No Log Files Found";
         float textWidth = ImGui::CalcTextSize(noLogsText).x;
         ImGui::SetCursorPosX((contentWidth - textWidth) / 2.0f);
@@ -851,7 +851,7 @@ void RenderLogFilesScreen(AppState &state)
                             SteamUtils::formatFileSize(log.size).c_str());
 
                 ImGui::TableSetColumnIndex(4);
-                ImGui::PushFont(UIFonts::Small);
+                ImGui::PushFont(UIFonts::GetSmall());
                 ImGui::Text("%s", log.lastModified.c_str());
                 ImGui::PopFont();
             }
