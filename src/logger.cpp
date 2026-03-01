@@ -24,7 +24,7 @@ namespace Logger
 
     void log(std::string_view message)
     {
-        std::cout << "[" << getTimestamp() << "] " << message << std::endl;
+        std::cout << "[" << getTimestamp() << "] " << message << '\n';
     }
 
     void log(std::string_view message, SeverityLevel level)
@@ -53,6 +53,6 @@ namespace Logger
             break;
         }
 
-        std::cout << "[" << getTimestamp() << "] [" << levelStr << "] " << message << std::endl;
+        std::cout << "[" << getTimestamp() << "] [" << levelStr << "] " << message << '\n';
     }
 }
