@@ -3,19 +3,19 @@
 
 #include <string>
 
-enum class SEVERITY_LEVEL
+enum class SeverityLevel
 {
-    INFO,
-    WARNING,
-    ERR, // Named ERR to avoid collision with Windows ERROR macro
-    FATAL,
-    DEBUG
+    Info,
+    Warning,
+    Err, // Named Err to avoid collision with Windows ERROR macro
+    Fatal,
+    Debug
 };
 
 namespace Logger
 {
     void log(const std::string &message);
-    void log(const std::string &message, SEVERITY_LEVEL level);
+    void log(const std::string &message, SeverityLevel level);
 
 }
 

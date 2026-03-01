@@ -286,7 +286,7 @@ void RenderWelcomeScreen(AppState &state)
         {
             state.steamDirFound = true;
             UIToast::Success("Steam directory auto-detected successfully.");
-            Logger::log("Found Steam directory: " + state.steamDir.string(), SEVERITY_LEVEL::INFO);
+            Logger::log("Found Steam directory: " + state.steamDir.string(), SeverityLevel::Info);
             state.games = SteamUtils::getInstalledGames(state.steamDir);
             state.currentScreen = Screen::GameSelection;
         }
@@ -355,7 +355,7 @@ void RenderWelcomeScreen(AppState &state)
             state.steamDir = manualPath;
             state.steamDirFound = true;
             UIToast::Success("Manual Steam directory set successfully.");
-            Logger::log("Using manual Steam directory: " + state.steamDir.string(), SEVERITY_LEVEL::INFO);
+            Logger::log("Using manual Steam directory: " + state.steamDir.string(), SeverityLevel::Info);
             state.games = SteamUtils::getInstalledGames(state.steamDir);
             state.currentScreen = Screen::GameSelection;
         }

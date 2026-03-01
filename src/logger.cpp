@@ -26,25 +26,25 @@ namespace Logger
         std::cout << "[" << getTimestamp() << "] " << message << std::endl;
     }
 
-    void log(const std::string &message, SEVERITY_LEVEL level)
+    void log(const std::string &message, SeverityLevel level)
     {
         std::string levelStr;
 
         switch (level)
         {
-        case SEVERITY_LEVEL::INFO:
+        case SeverityLevel::Info:
             levelStr = "INFO";
             break;
-        case SEVERITY_LEVEL::WARNING:
+        case SeverityLevel::Warning:
             levelStr = "WARNING";
             break;
-        case SEVERITY_LEVEL::ERR:
+        case SeverityLevel::Err:
             levelStr = "ERROR";
             break;
-        case SEVERITY_LEVEL::FATAL:
+        case SeverityLevel::Fatal:
             levelStr = "FATAL";
             break;
-        case SEVERITY_LEVEL::DEBUG:
+        case SeverityLevel::Debug:
             levelStr = "DEBUG";
             break;
         default:

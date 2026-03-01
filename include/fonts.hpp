@@ -60,19 +60,19 @@ namespace UIFonts
                                                      glyphRanges);
                 fontLoaded = true;
                 Logger::log("Loaded DejaVu Sans Mono font successfully",
-                            SEVERITY_LEVEL::INFO);
+                            SeverityLevel::Info);
             }
         }
         else
         {
             Logger::log("Font file not found: " + std::string(fontPath),
-                        SEVERITY_LEVEL::WARNING);
+                        SeverityLevel::Warning);
         }
 
         if (!fontLoaded)
         {
             Logger::log("Falling back to default ImGui font",
-                        SEVERITY_LEVEL::WARNING);
+                        SeverityLevel::Warning);
 
             config.SizePixels = 18.0f;
             Default = io.Fonts->AddFontDefault(&config);
