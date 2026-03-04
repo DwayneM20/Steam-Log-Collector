@@ -8,7 +8,7 @@ namespace UIToast
 {
     // --- Type metadata ---
 
-    const ImVec4 &color_for(Type type)
+    const ImVec4 &color_for(Type type) noexcept
     {
         static const auto table = std::array<ImVec4, 4>{{
             UIColors::Info,
@@ -16,7 +16,7 @@ namespace UIToast
             UIColors::Warning,
             UIColors::Error,
         }};
-        return table.at(static_cast<std::size_t>(type));
+        return table[static_cast<std::size_t>(type)];
     }
 
     // --- Toast implementation ---
@@ -30,13 +30,13 @@ namespace UIToast
     {
     }
 
-    float Toast::elapsed() const
+    float Toast::elapsed() const noexcept
     {
         const auto now = std::chrono::steady_clock::now();
         return std::chrono::duration<float>(now - created_at_).count();
     }
 
-    float Toast::opacity() const
+    float Toast::opacity() const noexcept
     {
         const float t = elapsed();
 
@@ -50,12 +50,12 @@ namespace UIToast
         return 1.0f;
     }
 
-    bool Toast::is_expired() const
+    bool Toast::is_expired() const noexcept
     {
         return dismissed_ || elapsed() > duration_ + kFadeOut;
     }
 
-    void Toast::dismiss()
+    void Toast::dismiss() noexcept
     {
         dismissed_ = true;
     }
@@ -64,8 +64,17 @@ namespace UIToast
 
     namespace
     {
-        std::vector<Toast> toasts;
-        int next_id = 0;
+        struct ToastState
+        {
+            std::vector<Toast> toasts;
+            int next_id = 0;
+        };
+
+        ToastState &state()
+        {
+            static ToastState s;
+            return s;
+        }
 
         constexpr float kPadding = 20.0f;
         constexpr float kToastWidth = 380.0f;
@@ -157,6 +166,7 @@ namespace UIToast
 
         void prune_expired()
         {
+            auto &toasts = state().toasts;
             toasts.erase(
                 std::remove_if(toasts.begin(), toasts.end(),
                                [](const Toast &t) { return t.is_expired(); }),
@@ -261,7 +271,8 @@ namespace UIToast
 
     void Show(std::string_view message, Type type, float duration)
     {
-        toasts.emplace_back(std::string(message), type, duration, next_id++);
+        auto &s = state();
+        s.toasts.emplace_back(std::string(message), type, duration, s.next_id++);
     }
 
     void Success(std::string_view message, float duration)
@@ -286,12 +297,12 @@ namespace UIToast
 
     void Render()
     {
+        auto &toasts = state().toasts;
         if (toasts.empty())
             return;
 
         prune_expired();
 
-        const ImVec2 display_size = ImGui::GetIO().DisplaySize;
         float y_offset = kPadding;
 
         for (auto &toast : toasts)

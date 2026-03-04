@@ -43,9 +43,8 @@ namespace SteamUtils
         size_t len = 0;
         if (_dupenv_s(&userProfile, &len, "USERPROFILE") == 0 && userProfile != nullptr)
         {
-            fs::path home(userProfile);
-            free(userProfile);
-            return home;
+            auto cleanup = std::unique_ptr<char, decltype(&free)>(userProfile, &free);
+            return fs::path(cleanup.get());
         }
         return {};
 #else

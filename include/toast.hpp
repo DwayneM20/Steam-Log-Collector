@@ -16,21 +16,21 @@ namespace UIToast
         Error
     };
 
-    [[nodiscard]] const ImVec4 &color_for(Type type);
+    [[nodiscard]] const ImVec4 &color_for(Type type) noexcept;
 
     class Toast
     {
     public:
         Toast(std::string message, Type type, float duration, int id);
 
-        [[nodiscard]] float elapsed() const;
-        [[nodiscard]] float opacity() const;
-        [[nodiscard]] bool is_expired() const;
-        [[nodiscard]] Type type() const { return type_; }
-        [[nodiscard]] int id() const { return id_; }
-        [[nodiscard]] std::string_view message() const { return message_; }
+        [[nodiscard]] float elapsed() const noexcept;
+        [[nodiscard]] float opacity() const noexcept;
+        [[nodiscard]] bool is_expired() const noexcept;
+        [[nodiscard]] Type type() const noexcept { return type_; }
+        [[nodiscard]] int id() const noexcept { return id_; }
+        [[nodiscard]] std::string_view message() const noexcept { return message_; }
 
-        void dismiss();
+        void dismiss() noexcept;
 
     private:
         std::string message_;
