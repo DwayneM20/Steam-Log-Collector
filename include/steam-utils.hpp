@@ -45,10 +45,20 @@ namespace SteamUtils
 
     /**
      * @brief Detects the operating system type
-     * @return A string representing the OS type (e.g., "Windows", "Linux", "macOS")
+     * @return A string_view representing the OS type (e.g., "Windows", "Linux", "macOS")
      */
-
-    [[nodiscard]] std::string getOperatingSystem();
+    [[nodiscard]] constexpr std::string_view getOperatingSystem() noexcept
+    {
+#ifdef _WIN32
+        return "Windows";
+#elif defined(__APPLE__)
+        return "macOS";
+#elif defined(__linux__)
+        return "Linux";
+#else
+        return "Unknown OS";
+#endif
+    }
 
     /**
      * @brief Structure to hold game information
@@ -116,7 +126,8 @@ namespace SteamUtils
     /**
      * @brief Recursively searches for log files in a directory
      * @param directory Directory to search
-     * @param logFiles Vector to store found log files
+     * @param logFiles Output vector to accumulate found log files (output parameter
+     *        used intentionally to avoid repeated vector allocations during recursion)
      * @param maxDepth Maximum recursion depth (default: 3)
      * @param currentDepth Current recursion depth (internal use)
      */

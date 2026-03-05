@@ -84,8 +84,6 @@ std::string ReadFileContent(const std::filesystem::path &filePath,
         bytesRead += file.gcount();
     }
 
-    file.close();
-
     std::string result = content.str();
     if (bytesRead >= maxBytes)
     {

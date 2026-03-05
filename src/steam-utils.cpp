@@ -23,18 +23,16 @@
 
 namespace SteamUtils
 {
-    std::string getOperatingSystem()
+    namespace
     {
-#ifdef _WIN32
-        return "Windows";
-#elif defined(__APPLE__)
-        return "macOS";
-#elif defined(__linux__)
-        return "Linux";
-#else
-        return "Unknown OS";
-#endif
-    }
+        [[nodiscard]] std::string to_lower(std::string_view sv)
+        {
+            std::string result{sv};
+            std::transform(result.begin(), result.end(), result.begin(),
+                [](unsigned char c) { return std::tolower(c); });
+            return result;
+        }
+    } // anonymous namespace
 
     fs::path getHomeDirectory()
     {
@@ -155,8 +153,7 @@ namespace SteamUtils
     {
         Logger::log("Searching for Steam installation directory...", SeverityLevel::Info);
 
-        std::string os = getOperatingSystem();
-        Logger::log("Detected operating system: " + os, SeverityLevel::Info);
+        Logger::log(std::string("Detected operating system: ").append(getOperatingSystem()), SeverityLevel::Info);
 
         std::vector<fs::path> potentialPaths = getSteamDirectoryPaths();
 
@@ -227,7 +224,6 @@ namespace SteamUtils
             }
         }
 
-        file.close();
         return game;
     }
 
@@ -278,13 +274,11 @@ namespace SteamUtils
 
     std::optional<GameInfo> findGameByName(const std::vector<GameInfo> &games, std::string_view gameName)
     {
-        std::string lowerGameName{gameName};
-        std::transform(lowerGameName.begin(), lowerGameName.end(), lowerGameName.begin(), [](unsigned char c) { return std::tolower(c); });
+        std::string lowerGameName = to_lower(gameName);
 
         for (const auto &game : games)
         {
-            std::string lowerCurrentGame = game.name;
-            std::transform(lowerCurrentGame.begin(), lowerCurrentGame.end(), lowerCurrentGame.begin(), [](unsigned char c) { return std::tolower(c); });
+            std::string lowerCurrentGame = to_lower(game.name);
 
             if (lowerCurrentGame == lowerGameName || lowerCurrentGame.find(lowerGameName) != std::string::npos)
             {
@@ -296,13 +290,13 @@ namespace SteamUtils
 
     bool isLogFile(std::string_view filename)
     {
-        std::string lowerFilename{filename};
-        std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), [](unsigned char c) { return std::tolower(c); });
+        std::string lowerFilename = to_lower(filename);
 
         for (const auto &ext : logFileExtensions)
         {
             if (lowerFilename.length() >= ext.length() &&
-                lowerFilename.substr(lowerFilename.length() - ext.length()) == ext)
+                lowerFilename.compare(lowerFilename.length() - ext.length(),
+                                      ext.length(), ext) == 0)
             {
                 return true;
             }
@@ -327,8 +321,8 @@ namespace SteamUtils
 
     std::string formatFileSize(std::uintmax_t size)
     {
-        constexpr const char *units[] = {"B", "KB", "MB", "GB"};
-        constexpr int maxUnitIndex = static_cast<int>(std::size(units)) - 1;
+        constexpr std::array<std::string_view, 4> units = {"B", "KB", "MB", "GB"};
+        constexpr int maxUnitIndex = static_cast<int>(units.size()) - 1;
         double fileSize = static_cast<double>(size);
         int unitIndex = 0;
 
@@ -394,8 +388,7 @@ namespace SteamUtils
                             logFile.size = entry.file_size();
                             logFile.lastModified = formatFileTime(logFile.path);
 
-                            std::string lowerFilename = filename;
-                            std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), [](unsigned char c) { return std::tolower(c); });
+                            std::string lowerFilename = to_lower(filename);
 
                             if (lowerFilename.find("crash") != std::string::npos ||
                                 lowerFilename.find("dump") != std::string::npos)
@@ -742,7 +735,6 @@ namespace SteamUtils
         if (summaryFile.is_open())
         {
             summaryFile << "Successfully copied " << copiedCount << "/" << logFiles.size() << " files\n";
-            summaryFile.close();
             Logger::log("Log summary file created: " + summaryPath.string(), SeverityLevel::Info);
         }
         Logger::log("Copy operation completed. " + std::to_string(copiedCount) + " files copied successfully.", SeverityLevel::Info);
