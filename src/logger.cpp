@@ -48,9 +48,6 @@ namespace Logger
         case SeverityLevel::Debug:
             levelStr = "DEBUG";
             break;
-        default:
-            levelStr = "UNKNOWN";
-            break;
         }
 
         std::cout << "[" << getTimestamp() << "] [" << levelStr << "] " << message << '\n';

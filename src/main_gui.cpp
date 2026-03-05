@@ -674,8 +674,7 @@ void RenderLogFilesScreen(AppState &state)
 
         if (UIWidgets::SecondaryButton("Select All", ImVec2(130, buttonHeight)))
         {
-            for (auto &selected : state.selectedLogs)
-                selected = true;
+            std::fill(state.selectedLogs.begin(), state.selectedLogs.end(), true);
         }
 
         ImGui::SameLine();
@@ -683,8 +682,7 @@ void RenderLogFilesScreen(AppState &state)
         if (UIWidgets::SecondaryButton("Deselect All",
                                        ImVec2(150, buttonHeight)))
         {
-            for (auto &selected : state.selectedLogs)
-                selected = false;
+            std::fill(state.selectedLogs.begin(), state.selectedLogs.end(), false);
         }
 
         ImGui::SameLine();
@@ -708,12 +706,8 @@ void RenderLogFilesScreen(AppState &state)
             ImGui::EndDisabled();
 
         // Copy button on the right
-        int selectedCount = 0;
-        for (bool selected : state.selectedLogs)
-        {
-            if (selected)
-                selectedCount++;
-        }
+        int selectedCount = static_cast<int>(
+            std::count(state.selectedLogs.begin(), state.selectedLogs.end(), true));
 
         float copyButtonWidth = 220.0f;
         ImGui::SameLine(contentWidth - copyButtonWidth);

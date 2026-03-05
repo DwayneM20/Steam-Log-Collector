@@ -1,5 +1,6 @@
 #include "fonts.hpp"
 #include "logger.hpp"
+#include <array>
 #include <filesystem>
 
 namespace UIFonts
@@ -22,7 +23,7 @@ namespace UIFonts
         config.OversampleH = 2;
         config.OversampleV = 1;
 
-        static const ImWchar glyphRanges[] = {
+        static constexpr std::array<ImWchar, 19> glyphRanges = {
             0x0020,
             0x00FF, // Basic Latin + Latin Supplement
             0x2000,
@@ -50,17 +51,17 @@ namespace UIFonts
         if (std::filesystem::exists(fontPath))
         {
             sDefault = io.Fonts->AddFontFromFileTTF(fontPath, 18.0f, &config,
-                                                     glyphRanges);
+                                                     glyphRanges.data());
             if (sDefault)
             {
                 sLarge = io.Fonts->AddFontFromFileTTF(fontPath, 24.0f, &config,
-                                                       glyphRanges);
+                                                       glyphRanges.data());
                 sTitle = io.Fonts->AddFontFromFileTTF(fontPath, 28.0f, &config,
-                                                       glyphRanges);
+                                                       glyphRanges.data());
                 sMedium = io.Fonts->AddFontFromFileTTF(fontPath, 20.0f, &config,
-                                                        glyphRanges);
+                                                        glyphRanges.data());
                 sSmall = io.Fonts->AddFontFromFileTTF(fontPath, 14.0f, &config,
-                                                       glyphRanges);
+                                                       glyphRanges.data());
                 fontLoaded = true;
                 Logger::log("Loaded DejaVu Sans Mono font successfully",
                             SeverityLevel::Info);
