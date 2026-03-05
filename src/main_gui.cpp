@@ -15,6 +15,7 @@
 #include "fonts.hpp"
 #include "ui_widgets.hpp"
 #include "toast.hpp"
+#include "resource_path.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -894,7 +895,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     if (window == nullptr)
         return 1;
 
-    SetWindowIcon(window, "resources/SLC-logo.png");
+    SetWindowIcon(window, GetResourcePath("resources/SLC-logo.png").string().c_str());
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);

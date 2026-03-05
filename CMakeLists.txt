@@ -57,8 +57,11 @@ if(BUILD_GUI)
     ${IMGUI_SOURCES}
     )
 
-    file(COPY ${CMAKE_SOURCE_DIR}/resources
-        DESTINATION ${CMAKE_BINARY_DIR})
+    add_custom_command(TARGET steam-log-collector-gui POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/resources
+            $<TARGET_FILE_DIR:steam-log-collector-gui>/resources
+    )
 
     target_link_libraries(steam-log-collector-gui
         glfw

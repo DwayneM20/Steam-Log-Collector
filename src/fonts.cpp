@@ -1,5 +1,6 @@
 #include "fonts.hpp"
 #include "logger.hpp"
+#include "resource_path.hpp"
 #include <array>
 #include <filesystem>
 
@@ -45,22 +46,23 @@ namespace UIFonts
             0,
         };
 
-        const char *fontPath = "resources/DejaVuSansMono.ttf";
+        auto fontPath = GetResourcePath("resources/DejaVuSansMono.ttf");
         bool fontLoaded = false;
 
         if (std::filesystem::exists(fontPath))
         {
-            sDefault = io.Fonts->AddFontFromFileTTF(fontPath, 18.0f, &config,
+            auto fontPathStr = fontPath.string();
+            sDefault = io.Fonts->AddFontFromFileTTF(fontPathStr.c_str(), 18.0f, &config,
                                                      glyphRanges.data());
             if (sDefault)
             {
-                sLarge = io.Fonts->AddFontFromFileTTF(fontPath, 24.0f, &config,
+                sLarge = io.Fonts->AddFontFromFileTTF(fontPathStr.c_str(), 24.0f, &config,
                                                        glyphRanges.data());
-                sTitle = io.Fonts->AddFontFromFileTTF(fontPath, 28.0f, &config,
+                sTitle = io.Fonts->AddFontFromFileTTF(fontPathStr.c_str(), 28.0f, &config,
                                                        glyphRanges.data());
-                sMedium = io.Fonts->AddFontFromFileTTF(fontPath, 20.0f, &config,
+                sMedium = io.Fonts->AddFontFromFileTTF(fontPathStr.c_str(), 20.0f, &config,
                                                         glyphRanges.data());
-                sSmall = io.Fonts->AddFontFromFileTTF(fontPath, 14.0f, &config,
+                sSmall = io.Fonts->AddFontFromFileTTF(fontPathStr.c_str(), 14.0f, &config,
                                                        glyphRanges.data());
                 fontLoaded = true;
                 Logger::log("Loaded DejaVu Sans Mono font successfully",
@@ -69,7 +71,7 @@ namespace UIFonts
         }
         else
         {
-            Logger::log("Font file not found: " + std::string(fontPath),
+            Logger::log("Font file not found: " + fontPath.string(),
                         SeverityLevel::Warning);
         }
 
