@@ -260,8 +260,8 @@ namespace SteamUtils
                         GameInfo game = parseAcfFile(entry.path());
                         if (!game.name.empty() && !game.appId.empty())
                         {
-                            games.push_back(game);
                             Logger::log("Found game: " + game.name + " (ID: " + game.appId + ")", SeverityLevel::Info);
+                            games.push_back(std::move(game));
                         }
                     }
                 }
@@ -279,12 +279,12 @@ namespace SteamUtils
     std::optional<GameInfo> findGameByName(const std::vector<GameInfo> &games, std::string_view gameName)
     {
         std::string lowerGameName{gameName};
-        std::transform(lowerGameName.begin(), lowerGameName.end(), lowerGameName.begin(), ::tolower);
+        std::transform(lowerGameName.begin(), lowerGameName.end(), lowerGameName.begin(), [](unsigned char c) { return std::tolower(c); });
 
         for (const auto &game : games)
         {
             std::string lowerCurrentGame = game.name;
-            std::transform(lowerCurrentGame.begin(), lowerCurrentGame.end(), lowerCurrentGame.begin(), ::tolower);
+            std::transform(lowerCurrentGame.begin(), lowerCurrentGame.end(), lowerCurrentGame.begin(), [](unsigned char c) { return std::tolower(c); });
 
             if (lowerCurrentGame == lowerGameName || lowerCurrentGame.find(lowerGameName) != std::string::npos)
             {
@@ -297,7 +297,7 @@ namespace SteamUtils
     bool isLogFile(std::string_view filename)
     {
         std::string lowerFilename{filename};
-        std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), ::tolower);
+        std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), [](unsigned char c) { return std::tolower(c); });
 
         for (const auto &ext : logFileExtensions)
         {
@@ -395,7 +395,7 @@ namespace SteamUtils
                             logFile.lastModified = formatFileTime(logFile.path);
 
                             std::string lowerFilename = filename;
-                            std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), ::tolower);
+                            std::transform(lowerFilename.begin(), lowerFilename.end(), lowerFilename.begin(), [](unsigned char c) { return std::tolower(c); });
 
                             if (lowerFilename.find("crash") != std::string::npos ||
                                 lowerFilename.find("dump") != std::string::npos)
@@ -419,8 +419,8 @@ namespace SteamUtils
                                 logFile.type = "game_log";
                             }
 
-                            logFiles.push_back(logFile);
                             Logger::log("Found log file: " + logFile.path.string() + " (" + formatFileSize(logFile.size) + ")", SeverityLevel::Debug);
+                            logFiles.push_back(std::move(logFile));
                         }
                     }
                     else if (entry.is_directory() && currentDepth < maxDepth - 1)
