@@ -54,6 +54,10 @@ if(BUILD_GUI)
     src/steam-utils.cpp
     src/fonts.cpp
     src/toast.cpp
+    src/file_preview.cpp
+    src/welcome_screen.cpp
+    src/game_selection_screen.cpp
+    src/log_files_screen.cpp
     ${IMGUI_SOURCES}
     )
 
